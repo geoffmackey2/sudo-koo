@@ -1,0 +1,1 @@
+web: gunicorn sudo-koo.wsgi
