@@ -31,7 +31,7 @@ ALLOWED_HOSTS = [
     'localhost',
     '0.0.0.0',
     '127.0.0.1',
-    'sudo-koo-b9c3d4cbab54.herokuapp.com',
+    '.herokuapp.com',
 ]
 
 
