@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,7 +29,9 @@ DEBUG = False
 
 ALLOWED_HOSTS = [
     'localhost',
-    '.herokuapp.com',
+    '0.0.0.0',
+    '127.0.0.1',
+    'sudo-koo-b9c3d4cbab54.herokuapp.com',
 ]
 
 
@@ -85,13 +88,14 @@ DATABASES = {
     }
 }
 """
+
+db_from_env = dj_database_url.config(conn_max_age=600)
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'URL': os.environ.get('DATABASE_URL'),
-        'NAME': 'ddnao25jhs89aj',
-    }
+    'default': db_from_env,
 }
+
+MEDIA_ROOT = os.path.join(BASE_DIR,'media')
+MEDIA_URL = '/media/'
 
 
 # Password validation
