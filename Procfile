@@ -1,1 +1,1 @@
-web: gunicorn sudo-koo.wsgi
+web: gunicorn sudokoo.wsgi
