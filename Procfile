@@ -1,1 +1,2 @@
-web: gunicorn sudokoo.wsgi
+release: python3 manage.py migrate
+web: gunicorn sudokoo.wsgi --preload --log-file -
