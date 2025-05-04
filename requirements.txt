@@ -3,3 +3,4 @@ Django==5.2
 psycopg2
 dj_database_url
 django-storages
+boto3
