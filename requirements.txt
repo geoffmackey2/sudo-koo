@@ -5,3 +5,5 @@ dj_database_url
 django-storages
 boto3
 dotenv
+requests
+bs4
