@@ -1,13 +1,12 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block head %}
+<link href="{% static 'css/home_styles.css' %}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <img src="{% static 'img/site-logo.svg' %}" alt="Site Logo">
-<div class="play-button">
-    <a class="button primary" href="play/">play</a>
-</div>
-<div class="sign-buttons">
-    <a class="button secondary" href="">sign in</a>
-    <a class="button secondary" href="">sign up</a>
-</div>
+<h1>A Sudoku experience for Sudoku players.</h1>
+<h2>Coming soon!</h2>
 {% endblock content %}

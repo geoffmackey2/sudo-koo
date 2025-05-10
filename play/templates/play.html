@@ -1,6 +1,866 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block head %}
+<link href="{% static 'css/play_styles.css' %}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
-Let's play! <a href="/">go back</a>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const grid = document.getElementById('game-grid');
+    const cells = grid.getElementsByClassName('cell');
+    const modes = {
+        DIGIT: 'digit',
+        CORNER: 'corner',
+        MIDDLE: 'middle',
+        COLOR: 'color'
+    }
+    const direction = {
+        UP: 'up',
+        DOWN: 'down',
+        LEFT: 'left',
+        RIGHT: 'right'
+    }
+    const colors = {
+        1: '#620000',
+        2: '#272727',
+        3: '#064655',
+        4: '#360B72',
+        5: '#6D0B46',
+        6: '#084928',
+        7: '#884210',
+        8: '#3F2114',
+        9: '#525252'
+    }
+    const cornerMarkOffsets = {
+        topLeft: { x: 6, y: 23.5 },
+        topMiddle: { x: 32, y: 23.5 },
+        topRight: { x: 61, y: 23.5 },
+        middleLeft: { x: 6, y: 48 },
+        middleMiddle: { x: 32, y: 48 },
+        middleRight: { x: 61, y: 48 },
+        bottomLeft: { x: 6, y: 72 },
+        bottomMiddle: { x: 32, y: 72 },
+        bottomRight: { x: 61, y: 72 }
+    }
+    var lastCellSelection;
+    var dragging;
+    var currentMode = modes.DIGIT;
+
+    const digitControl = document.getElementById('digit-control');
+    const cornerControl = document.getElementById('corner-control');
+    const middleControl = document.getElementById('middle-control');
+    const colorControl = document.getElementById('color-control');
+
+    function setupGame() {
+        for (const cell of cells) {
+            cell.addEventListener('click', function() {
+                event.preventDefault();
+
+                if(isSelected(cell) && grid.getElementsByClassName('selected-cell').length === 1 && !dragging) {
+                    deselectCell(cell);
+                } else {
+                    deselectAll();
+                    selectCell(cell);
+                }
+            });
+        }
+
+        grid.addEventListener("pointerdown", selectCellsOnDrag);
+        function selectCellsOnDrag(event) {
+            event.preventDefault();
+
+            function makeSelections(event) {
+                if(dragging === false) {
+                    deselectAll();
+                    dragging = true;
+                }
+                const pointerX = event.pageX + window.scrollX;
+                const pointerY = event.pageY + window.scrollY;
+
+                for (const cell of cells) {
+                    if (checkPointerCellIntersection({x: pointerX, y: pointerY}, cell)) {
+                        selectCell(cell);
+                    }
+                }
+            }
+
+            grid.addEventListener("pointermove", makeSelections);
+            grid.addEventListener("pointerup", () => {
+                dragging = false;
+                grid.removeEventListener("pointermove", makeSelections);
+            });
+        }
+
+        digitControl.addEventListener('click', function() {
+            currentMode = modes.DIGIT;
+            digitControl.classList.add('selected');
+            cornerControl.classList.remove('selected');
+            middleControl.classList.remove('selected');
+            colorControl.classList.remove('selected');
+        });
+
+        cornerControl.addEventListener('click', function() {
+            currentMode = modes.CORNER;
+            digitControl.classList.remove('selected');
+            cornerControl.classList.add('selected');
+            middleControl.classList.remove('selected');
+            colorControl.classList.remove('selected');
+        });
+
+        middleControl.addEventListener('click', function() {
+            currentMode = modes.MIDDLE;
+            digitControl.classList.remove('selected');
+            cornerControl.classList.remove('selected');
+            middleControl.classList.add('selected');
+            colorControl.classList.remove('selected');
+        });
+
+        colorControl.addEventListener('click', function() {
+            currentMode = modes.COLOR;
+            digitControl.classList.remove('selected');
+            cornerControl.classList.remove('selected');
+            middleControl.classList.remove('selected');
+            colorControl.classList.add('selected');
+        });
+
+        document.addEventListener('keydown', function(event) {
+            switch (event.key) {
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    switch(currentMode) {
+                        case modes.COLOR:
+                            applyColorToSelectedCells(parseInt(event.key));
+                            break;
+                        case modes.DIGIT:
+                            placeDigitInSelectedSells(parseInt(event.key));
+                            break;
+                        case modes.CORNER:
+                            placeCornerMarkInSelectedCells(parseInt(event.key));
+                            break;
+                    }
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    moveCellSelection(direction.DOWN)
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    moveCellSelection(direction.LEFT)
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    moveCellSelection(direction.RIGHT)
+                    break;
+                case 'ArrowUp':
+                    event.preventDefault();
+                    moveCellSelection(direction.UP)
+                    break;
+                case 'Backspace':
+                    clearSelectedCells();
+                    break;
+            }
+        });
+    }
+
+    function applyColorToSelectedCells(color) {
+        const selectedCells = getSelectedCells();
+        for(const cell of selectedCells) {
+            const cellColors = cell.getElementsByClassName('color-segment');
+            const existingNumberOfColors = cellColors.length;
+            const cellBackground = cell.getElementsByClassName('cell-background')[0];
+            const cellBackgroundXpos = parseFloat(cellBackground.getAttribute('x'));
+            const cellBackgroundYpos = parseFloat(cellBackground.getAttribute('y'));
+            switch (existingNumberOfColors) {
+                case 0:
+                    const oneColorRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    oneColorRect.setAttribute('class', 'color-segment');
+                    oneColorRect.setAttribute('x', cellBackgroundXpos + .5);
+                    oneColorRect.setAttribute('y', cellBackgroundYpos + .5);
+                    oneColorRect.setAttribute('width', '78');
+                    oneColorRect.setAttribute('height', '78');
+                    oneColorRect.setAttribute('fill', colors[color]);
+                    oneColorRect.setAttribute('opacity', '0.25');
+                    cellBackground.after(oneColorRect);
+                    break;
+                case 1:
+                    const firstColor = cellColors[0].getAttribute('fill');
+                    if(firstColor === color) {
+                        clearCellColors(cell);
+                        return;
+                    }
+                    const firstColorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    firstColorSegment.setAttribute('class', 'color-segment');
+                    firstColorSegment.setAttribute('fill', firstColor)
+                    firstColorSegment.setAttribute('d', 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z');
+                    firstColorSegment.setAttribute('opacity', 0.65);
+                    const secondColorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    secondColorSegment.setAttribute('class', 'color-segment');
+                    secondColorSegment.setAttribute('fill', colors[color]);
+                    secondColorSegment.setAttribute('d', 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z');
+                    secondColorSegment.setAttribute('opacity', 0.65);
+                    clearCellColors(cell);
+                    cellBackground.after(firstColorSegment);
+                    cellBackground.after(secondColorSegment);
+            }
+        }
+    }
+
+    function clearCellColors(cell) {
+        const cellColors = cell.getElementsByClassName('color-segment');
+        while(cellColors.length > 0) {
+            cellColors[0].remove();
+        }
+    }
+
+    function setCellColorsOpacity(cell, opacity) {
+        const cellColors = cell.getElementsByClassName('color-segment');
+        for(const cellColor of cellColors) {
+            cellColor.setAttribute('opacity', opacity);
+        }
+    }
+
+    function placeDigitInSelectedSells(digit) {
+        const selectedCells = getSelectedCells();
+        for(const cell of selectedCells) {
+            const cellBackground = cell.getElementsByClassName('cell-background')[0];
+            clearCellDigit(cell);
+            const newCellDigit = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            newCellDigit.setAttribute('class', 'placed-digit');
+            newCellDigit.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + 26);
+            newCellDigit.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + 55.5);
+            newCellDigit.textContent = String(digit);
+            cell.appendChild(newCellDigit);
+        }
+    }
+
+    function placeCornerMarkInSelectedCells(digit) {
+        const selectedCells = getSelectedCells();
+        for(const cell of selectedCells) {
+            const cellPlacedDigits = cell.getElementsByClassName('placed-digit');
+            const cellGivenDigits = cell.getElementsByClassName('given-digit');
+            var newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            if(cellPlacedDigits.length === 0 && cellGivenDigits.length === 0) {
+                const cellBackground = cell.getElementsByClassName('cell-background')[0];
+                const cellCornerMarks = cell.getElementsByClassName('corner-mark');
+                var markFoundAndRemoved = false;
+                for(const cornerMark of cellCornerMarks) {
+                    if(cornerMark.textContent === String(digit)) {
+                        cornerMark.remove();
+                        updateCornerMarks(cell, cornerMark.id);
+                        markFoundAndRemoved = true;
+                    }
+                }
+                if(!markFoundAndRemoved) {
+                    switch(cellCornerMarks.length) {
+                        case 0:
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'top-left')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.topLeft.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.topLeft.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                        case 1:
+                            newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'top-right')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.topRight.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.topRight.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                        case 2:
+                            newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'bottom-left')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.bottomLeft.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.bottomLeft.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                        case 3:
+                            newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'bottom-right')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.bottomRight.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.bottomRight.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                        case 4:
+                            newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'middle-left')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.middleLeft.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.middleLeft.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                        case 5:
+                            newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'middle-right')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.middleRight.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.middleRight.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                        case 6:
+                            newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'top-middle')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.topMiddle.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.topMiddle.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                        case 7:
+                            newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'bottom-middle')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.bottomMiddle.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.bottomMiddle.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                        case 8:
+                            newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            newCornerMark.setAttribute('class', 'corner-mark');
+                            newCornerMark.setAttribute('id', 'middle-middle')
+                            newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.middleMiddle.x);
+                            newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.middleMiddle.y);
+                            newCornerMark.textContent = String(digit);
+                            cell.appendChild(newCornerMark);
+                            break;
+                    }
+                }
+            }
+        }
+    }
+
+    function updateCornerMarks(cell, removedPosition) {
+        const cellCornerMarks = cell.getElementsByClassName('corner-mark');
+        const cellBackground = cell.getElementsByClassName('cell-background')[0];
+        switch(cellCornerMarks.length) {
+            case 1:
+                if(String(removedPosition) === 'top-left') {
+                    const topRightCornerMark = getCornerMarkByID(cell, 'top-right');
+                    topRightCornerMark.setAttribute('id', 'top-left');
+                    topRightCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.topLeft.x);
+                    topRightCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.topLeft.y);
+                }
+        }
+    }
+
+    function getCornerMarkByID(cell, id) {
+        const cellCornerMarks = cell.getElementsByClassName('corner-mark');
+        for(const cornerMark of cellCornerMarks) {
+            if(cornerMark.id === id) {
+                return cornerMark;
+            }
+        }
+        return null;
+    }
+
+    function clearCellDigit(cell) {
+        const cellDigit = cell.getElementsByClassName('placed-digit');
+        if(cellDigit.length > 0) {
+            cellDigit[0].remove();
+        }
+    }
+
+    function clearCellCornerMarks(cell) {
+        const cellCornerMarks = cell.getElementsByClassName('corner-mark');
+        while(cellCornerMarks.length > 0) {
+            cellCornerMarks[0].remove();
+        }
+    }
+
+    function clearSelectedCells() {
+        const selectedCells = getSelectedCells();
+        for(const cell of selectedCells) {
+            if(cell.getElementsByClassName('placed-digit').length > 0) {
+                clearCellDigit(cell);
+            } else if(cell.getElementsByClassName('corner-mark').length > 0) {
+                clearCellCornerMarks(cell);
+            } else if(cell.getElementsByClassName('color-segment').length > 0) {
+                clearCellColors(cell);
+            }
+        }
+    }
+
+    function getSelectedCells() {
+        const selectedCellOverlays = grid.getElementsByClassName('selected-cell');
+        const selectedCells = [];
+        for(const selectedCellOverlay of selectedCellOverlays) {
+            selectedCells.push(selectedCellOverlay.parentElement);
+        }
+        return selectedCells;
+    }
+
+    function deselectAll() {
+        for(const cell of cells) {
+            deselectCell(cell);
+        }
+    }
+
+    function deselectCell(cell) {
+        if(isSelected(cell)) {
+            cell.getElementsByClassName('selected-cell')[0].remove();
+            setCellColorsOpacity(cell, 1);
+            lastCellSelection = null;
+        }
+    }
+
+    function isSelected(cell) {
+        const selectionOverlay = cell.getElementsByClassName('selected-cell');
+        return selectionOverlay.length > 0;
+    }
+
+    function selectCell(cell) {
+        if(!isSelected(cell)) {
+            const cellBackground = cell.getElementsByClassName('cell-background')[0];
+            const selectionCellXpos = parseFloat(cellBackground.getAttribute('x')) + 2;
+            const selectionCellYpos = parseFloat(cellBackground.getAttribute('y')) + 2;
+            const selectionOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            selectionOverlay.setAttribute('class', 'selected-cell');
+            selectionOverlay.setAttribute('x', selectionCellXpos);
+            selectionOverlay.setAttribute('y', selectionCellYpos);
+            cell.appendChild(selectionOverlay);
+            setCellColorsOpacity(cell, 0.65);
+            lastCellSelection = cell;
+        }
+    }
+
+    function moveCellSelection(moveDirection) {
+        const oldCellNumber = parseInt(lastCellSelection.getAttribute('id').split('cell-')[1]);
+        const oldCellRow = Math.ceil((oldCellNumber + 1) / 9);
+        const oldCellColumn = (oldCellNumber - (oldCellRow * 9)) + 10;
+        switch(moveDirection) {
+            case direction.UP:
+                if(oldCellRow > 1) {
+                    deselectAll();
+                    selectCell(getCellByID('cell-' + (oldCellNumber - 9)));
+                }
+                break;
+            case direction.DOWN:
+                if(oldCellRow < 9) {
+                    deselectAll();
+                    selectCell(getCellByID('cell-' + (oldCellNumber + 9)));
+                }
+                break;
+            case direction.LEFT:
+                if(oldCellColumn > 1) {
+                    deselectAll();
+                    selectCell(getCellByID('cell-' + (oldCellNumber - 1)));
+                }
+                break;
+            case direction.RIGHT:
+                if(oldCellColumn < 9) {
+                    deselectAll();
+                    selectCell(getCellByID('cell-' + (oldCellNumber + 1)));
+                }
+                break;
+        }
+    }
+
+    function getCellByID(id) {
+        for(const cell of cells) {
+            if(cell.getAttribute('id') === id) {
+                return cell;
+            }
+        }
+        return null;
+    }
+
+    function checkPointerCellIntersection(pointer, cell) {
+        const pointerX = pointer.x;
+        const pointerY = pointer.y;
+        const cellLeft = cell.getBoundingClientRect().x;
+        const cellRight = cellLeft + cell.getBoundingClientRect().width;
+        const cellTop = cell.getBoundingClientRect().y;
+        const cellBottom = cellTop + cell.getBoundingClientRect().height;
+        return (pointerX >= cellLeft && pointerX <= cellRight && pointerY >= cellTop && pointerY <= cellBottom);
+    }
+
+    function resizeGrid() {
+        const game = document.getElementById('game');
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        const scaleX = windowWidth / 1000;
+        const scaleY = windowHeight / 1000;
+        const scale = Math.min(scaleX, scaleY);
+            game.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+            game.style.left = game.getBoundingClientRect().width / 2 - 5 + 'px';
+            game.style.top = game.getBoundingClientRect().height / 2 - 5 + 'px';
+    }
+
+    window.addEventListener('resize', resizeGrid, true);
+    resizeGrid();
+
+    setupGame();
+
+    // function encryptString(text) {
+    //     return btoa(text);
+    // }
+
+    // function decryptString(encryptedText) {
+    // return atob(encryptedText);
+    // }
+
+    // // Example
+    // const originalString = "This is a secret message.";
+    // const encryptedString = encryptString(originalString);
+    // console.log("Encrypted:", encryptedString);
+    // const decryptedString = decryptString(encryptedString);
+    // console.log("Decrypted:", decryptedString);
+});
+</script>
+<div id="game">
+    <svg width="762" height="762" viewBox="0 0 762 762" fill="none" id="game-grid" xmlns="http://www.w3.org/2000/svg">
+    <rect x="11" y="11" width="740" height="740" fill="#285C77"/>
+    <g class="cell" id="cell-0">
+        <rect x="11.5" y="11.5" width="79" height="79" class="cell-background" stroke="#6D6D6D"/>
+        <g id="six-colors" opacity="1">
+            <path d="M0 90 H73.5 L51 51 H90 V90 Z" fill="#BFBFBF"/>
+            <path d="M0 90 H28.5 L51 51 L73.5 90 Z" fill="#6E6E6E"/>
+            <path d="M51 51 L28.5 90 H12 V51 L51 51 Z" fill="#FA791E"/>
+            <path d="M0 51 H12 V12 H28.5 L51 51 Z" fill="#1F9459"/>
+            <path d="M51 51 L28.5 12 H73.5 L51 51 Z" fill="#F039A7"/>
+            <path d="M90 51 L51 51 L73.5 12 H90 V51 Z" fill="#651BCD"/>
+        </g>
+        <g id="five-colors" opacity="0">
+            <path d="M0 90 H63.5 L51 51 H90 V90 Z" fill="#BFBFBF"/>
+            <path d="M0 90 H12 V70 L51 51 L63.5 90 Z" fill="#6E6E6E"/>
+            <path d="M51 51 L12 70 V22.5 L51 51 Z" fill="#FA791E"/>
+            <path d="M51 51 L12 22.5 V12 H63.5 L51 51 Z" fill="#1F9459"/>
+            <path d="M0 51 H51 L63.5 12 H90 V51 Z" fill="#F039A7"/>
+        </g>
+        <g id="four-colors" opacity="0">
+            <path d="M0 90 H51 V51 H90 V90 Z" fill="#BFBFBF"/>
+            <path d="M0 90 H12 V51 H51 V90 Z" fill="#6E6E6E"/>
+            <path d="M0 51 H12 V12 H51 V51 Z" fill="#FA791E"/>
+            <path d="M0 51 H51 V12 H90 V51 Z" fill="#1F9459"/>
+        </g>
+        <g id="three-colors" opacity="0">
+            <path d="M0 90 H18.5 L51 51 H90 V90 Z" fill="#BFBFBF"/>
+            <path d="M51 51 L18.5 90 H12 V12 H18.5 L51 51 Z" fill="#6E6E6E"/>
+            <path d="M0 51 L51 51 L18.5 12 H90 V51 Z" fill="#FA791E"/>
+        </g>
+        <g id="two-colors" opacity="0">
+            <path d="M0 51 H12 V12 H90 V51 Z" fill="#6E6E6E"/>
+            <path d="M0 90 H12 V51 H90 V90 Z" fill="#BFBFBF"/>
+        </g>
+        <g id="one-color" opacity="0">
+            <rect x="12" y="12" width="78" height="78" fill="#D9D9D9"/>
+        </g>
+        <g id="corner-marks" opacity="1">
+            <text class="corner-mark" id="top-left" x="17.5" y="34.5">1</text>
+            <text class="corner-mark" id="top-middle" x="43.5" y="34.5">2</text>
+            <text class="corner-mark" id="top-right" x="72.5" y="34.5">3</text>
+            <text class="corner-mark" id="middle-left" x="17.5" y="59.5">4</text>
+            <text class="corner-mark" id="middle-middle" x="43.5" y="59.5">5</text>
+            <text class="corner-mark" id="middle-right" x="72.5" y="59.5">6</text>
+            <text class="corner-mark" id="bottom-left" x="17.5" y="83.5">7</text>
+            <text class="corner-mark" id="bottom-middle" x="43.5" y="83.5">8</text>
+            <text class="corner-mark" id="bottom-right" x="72.5" y="83.5">9</text>
+        </g>
+        <text class="middle-marks" x="50" y="53" dominant-baseline="middle" text-anchor="middle" data-count="9">
+            <tspan>1</tspan>
+            <tspan>2</tspan>
+            <tspan>3</tspan>
+            <tspan>4</tspan>
+            <tspan>5</tspan>
+            <tspan>6</tspan>
+            <tspan>7</tspan>
+            <tspan>8</tspan>
+            <tspan>9</tspan>
+        </text>
+        <text x="38" y="67" class="placed-digit">3</text>
+    </g>
+    <g class="cell" id="cell-1">
+        <rect class="cell-background" x="91.5" y="11.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-2">
+        <rect  class="cell-background" x="171.5" y="11.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-3">
+        <rect  class="cell-background" x="261.5" y="11.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-4">
+        <rect  class="cell-background" x="341.5" y="11.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-5">
+        <rect class="cell-background" x="421.5" y="11.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-6">
+        <rect x="511.5" y="11.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-7">
+        <rect x="591.5" y="11.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-8">
+        <rect x="671.5" y="11.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-9">
+        <rect class="cell-background" x="11.5" y="91.5" width="79" height="79"/>
+        <path d="M90 163.72L51 131H90V163.72Z" fill="#BFBFBF"/>
+        <path d="M90 163.725V170H57.8799L51 131L90 163.725Z" fill="#6E6E6E"/>
+        <path d="M57.877 170H28.4863L51 131L57.877 170Z" fill="#FA791E"/>
+        <path d="M28.4834 170H12V145.198L51 131L28.4834 170Z" fill="#1F9459"/>
+        <path d="M51 131L12 145.194V116.808L51 131Z" fill="#F039A7"/>
+        <path d="M51 131L12 116.805V92H28.4795L51 131Z" fill="#651BCD"/>
+        <path d="M51 131L28.4834 92H57.874L51 131Z" fill="#1BACCD"/>
+        <path d="M90 98.2695L51 131L57.877 92H90V98.2695Z" fill="#FFFF53"/>
+        <path d="M90 130.997L51 131L90 98.2744V130.997Z" fill="#FF5353"/>
+        <rect class="selected-cell" x="13.5" y="93.5" width="75" height="75" visibility="hidden"/>
+    </g>
+    <g class="cell" id="cell-10">
+        <rect class="cell-background" x="91.5" y="91.5" width="79" height="79"/>
+        <path d="M170 170L131 131H170V170Z" fill="#BFBFBF"/>
+        <path d="M170 170H131V131L170 170Z" fill="#6E6E6E"/>
+        <path d="M131 170H92L131 131V170Z" fill="#FA791E"/>
+        <path d="M92 170V131H131L92 170Z" fill="#1F9459"/>
+        <path d="M131 131H92V92L131 131Z" fill="#F039A7"/>
+        <path d="M131 131L92 92H131V131Z" fill="#651BCD"/>
+        <path d="M131 131V92H170L131 131Z" fill="#1BACCD"/>
+        <path d="M170 131H131L170 92V131Z" fill="#FFFF53"/>
+    </g>
+    <g class="cell" id="cell-11">
+        <rect  class="cell-background" x="171.5" y="91.5" width="79" height="79"/>
+        <g id="seven-colors">
+            <path d="M250 170H242.124L211 131H250V170Z" fill="#BFBFBF"/>
+            <path d="M242.111 170H202.119L211 131L242.111 170Z" fill="#6E6E6E"/>
+            <path d="M202.097 170H172V149.796L211 131L202.097 170Z" fill="#FA791E"/>
+            <path d="M211 131L172 149.786V112.241L211 131Z" fill="#1F9459"/>
+            <path d="M211 131L172 112.229V92H202.073L211 131Z" fill="#F039A7"/>
+            <path d="M211 131L202.082 92H242.053L211 131Z" fill="#651BCD"/>
+            <path d="M250 130.964L211 131L242.066 92H250V130.964Z" fill="#1BACCD"/>
+        </g>
+    </g>
+    <g class="cell" id="cell-12">
+        <rect  class="cell-background" x="261.5" y="91.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-13">
+        <rect class="cell-background" x="341.5" y="91.5" width="79" height="79"/>
+    </g>
+        <g class="cell" id="cell-14">
+        <rect class="cell-background" x="421.5" y="91.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-18">
+        <rect class="cell-background" x="11.5" y="171.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-19">
+        <rect class="cell-background" x="91.5" y="171.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-20">
+        <rect  class="cell-background" x="171.5" y="171.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-21">
+    <rect  class="cell-background" x="261.5" y="171.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-22">
+        <rect class="cell-background" x="341.5" y="171.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-23">
+        <rect x="421.5" y="171.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-15">
+        <rect x="511.5" y="91.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-24">
+        <rect x="511.5" y="171.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-16">
+        <rect x="591.5" y="91.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-25">
+        <rect x="591.5" y="171.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-17">
+        <rect x="671.5" y="91.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-26">
+        <rect x="671.5" y="171.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-27">
+        <rect x="11.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-36">
+        <rect x="11.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-45">
+        <rect x="11.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-28">
+        <rect x="91.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-37">
+        <rect x="91.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-46">
+        <rect x="91.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-29">
+        <rect x="171.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-38">
+        <rect x="171.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-47">
+        <rect x="171.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-30">
+        <rect x="261.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-39">
+        <rect x="261.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-48">
+        <rect x="261.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-31">
+        <rect x="341.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-40">
+        <rect x="341.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-49">
+        <rect x="341.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-32">
+        <rect x="421.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-41">
+        <rect x="421.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-50">
+        <rect x="421.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-33">
+        <rect x="511.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-42">
+        <rect x="511.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-51">
+        <rect x="511.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-34">
+        <rect x="591.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-43">
+        <rect x="591.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-52">
+        <rect x="591.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-35">
+        <rect x="671.5" y="261.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-44">
+        <rect x="671.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-53">
+        <rect x="671.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-54">
+        <rect x="11.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-63">
+        <rect x="11.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-72">
+        <rect x="11.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-55">
+        <rect x="91.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-64">
+        <rect x="91.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-73">
+        <rect x="91.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-56">
+        <rect x="171.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-65">
+        <rect x="171.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-74">
+        <rect x="171.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-57">
+        <rect x="261.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-66">
+        <rect x="261.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-75">
+        <rect x="261.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-58">
+        <rect x="341.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-67">
+        <rect x="341.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-76">
+        <rect x="341.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-59">
+        <rect x="421.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-68">
+        <rect x="421.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-77">
+        <rect x="421.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-60">
+        <rect x="511.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-69">
+        <rect x="511.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-78">
+        <rect x="511.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-61">
+        <rect x="591.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-70">
+        <rect x="591.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-79">
+        <rect x="591.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-62">
+        <rect x="671.5" y="511.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-71">
+        <rect x="671.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-80">
+    <rect x="671.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <rect x="5.5" y="5.5" width="751" height="751" rx="7.5" stroke="#285C77" stroke-width="11"/>
+    </svg>
+    <div id="game-controls">
+        <a href="#" id="digit-control" class="mode-selector selected" data-mode="digit" style="background: url({% static 'img/digit-control.svg' %}) center no-repeat;"></a>
+        <a href="#" id="corner-control" class="mode-selector" data-mode="corner" style="background: url({% static 'img/corner-control.svg' %}) center no-repeat;"></a>
+        <a href="#" id="middle-control" class="mode-selector" data-mode="middle" style="background: url({% static 'img/middle-control.svg' %}) center no-repeat;"></a>
+        <a href="#" id="color-control" class="mode-selector" data-mode="color" style="background: url({% static 'img/color-control.svg' %}) center no-repeat;"></a>
+    </div>
+</div>
 {% endblock content %}

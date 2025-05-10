@@ -1,0 +1,97 @@
+#game-grid {
+    cursor: pointer;
+    position: relative;
+    float:left;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    perspective: 1000;
+    -webkit-perspective: 1000;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+#game-grid g text {
+    font-family: 'Roboto Codensed', sans-serif;
+    font-size: 3em;
+    font-weight: bold;
+    fill: white;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+#game-grid g text.placed-digit {
+    fill: #61C9FF;
+}
+
+#game-grid g text.corner-mark {
+    fill: #61C9FF;
+    font-size: 1.3em;
+}
+
+#game-grid g rect.cell-background {
+    fill: #050A1C;
+    stroke: #6D6D6D;
+}
+
+#game-grid g rect.selected-cell {
+    stroke: #61C9FF;
+    stroke-width: 5px;
+    width: 75px;
+    height: 75px;
+}
+
+#game-grid g text.middle-marks {
+    fill: #61C9FF;
+    font-size: 1.5em
+}
+
+#game-grid g text.middle-marks[data-count="9"] {
+    font-size: .55em
+}
+
+#game-grid g text.middle-marks[data-count="8"] {
+    font-size: .65em
+}
+
+#game-grid g text.middle-marks[data-count="7"] {
+    font-size: .7em
+}
+
+#game-grid g text.middle-marks[data-count="6"] {
+    font-size: .8em
+}
+
+#game-grid g text.middle-marks[data-count="5"] {
+    font-size: 1em
+}
+
+#game-grid g text.middle-marks[data-count="4"] {
+    font-size: 1em
+}
+
+a.mode-selector {
+    display: block;
+    border: 2px solid #61C9FF;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    width: 75px;
+    height: 75px;
+}
+
+a.mode-selector.selected {
+    border-color: #FFFFFF;
+}
+
+#game-controls {
+    position: relative; 
+    float: left; 
+    margin-left: 20px;
+}
+
+#game {
+    position: relative; 
+    left: 0px; 
+    top: 0px;
+}

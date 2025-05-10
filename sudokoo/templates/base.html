@@ -3,7 +3,17 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <link href="{% static 'css/styles.css' %}" rel="stylesheet">
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-T6782FZYPB"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-T6782FZYPB');
+        </script>
+        <link href="{% static 'css/base_styles.css' %}" rel="stylesheet">
+        {%block head %}{% endblock %}
     </head>
     <body>
         {% block content %}{% endblock content%}

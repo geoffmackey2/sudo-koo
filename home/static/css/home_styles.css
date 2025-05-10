@@ -1,0 +1,15 @@
+h1 {
+    text-align: center;
+}
+
+div.play-button {
+    margin-bottom: 20px;
+}
+
+div.sign-buttons {
+    width: fit-content;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
