@@ -22,17 +22,17 @@ document.addEventListener('DOMContentLoaded', function() {
         LEFT: 'left',
         RIGHT: 'right'
     }
-    const colors = {
-        1: '#620000',
-        2: '#272727',
-        3: '#064655',
-        4: '#360B72',
-        5: '#6D0B46',
-        6: '#084928',
-        7: '#884210',
-        8: '#3F2114',
-        9: '#525252'
-    }
+    const colors = [
+        '#620000',
+        '#272727',
+        '#064655',
+        '#360B72',
+        '#6D0B46',
+        '#084928',
+        '#884210',
+        '#3F2114',
+        '#525252'
+    ]
     const cornerMarkOffsets = {
         topLeft: { x: 6, y: 23.5 },
         topMiddle: { x: 32, y: 23.5 },
@@ -44,9 +44,24 @@ document.addEventListener('DOMContentLoaded', function() {
         bottomMiddle: { x: 32, y: 72 },
         bottomRight: { x: 61, y: 72 }
     }
+    const cornerPositions = {
+        TOP_LEFT: 'topLeft',
+        TOP_MIDDLE: 'topMiddle',
+        TOP_RIGHT: 'topRight',
+        MIDDLE_LEFT: 'middleLeft',
+        MIDDLE_MIDDLE: 'middleMiddle',
+        MIDDLE_RIGHT: 'middleRight',
+        BOTTOM_LEFT: 'bottomLeft',
+        BOTTOM_MIDDLE: 'bottomMiddle',
+        BOTTOM_RIGHT: 'bottomRight'
+    }
     var lastCellSelection;
-    var dragging;
+    var dragging = false;
+    var selectedByDrag = false;
     var currentMode = modes.DIGIT;
+    var previousMode;
+    var keyPressed = false;
+    var shiftPressed = false;
 
     const digitControl = document.getElementById('digit-control');
     const cornerControl = document.getElementById('corner-control');
@@ -58,11 +73,12 @@ document.addEventListener('DOMContentLoaded', function() {
             cell.addEventListener('click', function() {
                 event.preventDefault();
 
-                if(isSelected(cell) && grid.getElementsByClassName('selected-cell').length === 1 && !dragging) {
+                if(isSelected(cell) && grid.getElementsByClassName('selected-cell').length === 1 && !selectedByDrag) {
                     deselectCell(cell);
                 } else {
                     deselectAll();
                     selectCell(cell);
+                    selectedByDrag = false;
                 }
             });
         }
@@ -74,6 +90,9 @@ document.addEventListener('DOMContentLoaded', function() {
             function makeSelections(event) {
                 if(dragging === false) {
                     deselectAll();
+                    if(lastCellSelection != null) {
+                        selectCell(lastCellSelection);
+                    }
                     dragging = true;
                 }
                 const pointerX = event.pageX + window.scrollX;
@@ -82,6 +101,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 for (const cell of cells) {
                     if (checkPointerCellIntersection({x: pointerX, y: pointerY}, cell)) {
                         selectCell(cell);
+                        selectedByDrag = true;
                     }
                 }
             }
@@ -93,61 +113,97 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        digitControl.addEventListener('click', function() {
-            currentMode = modes.DIGIT;
-            digitControl.classList.add('selected');
-            cornerControl.classList.remove('selected');
-            middleControl.classList.remove('selected');
-            colorControl.classList.remove('selected');
+        digitControl.addEventListener('click', function(event) {
+            event.preventDefault();
+            updateCurrentMode(modes.DIGIT);
         });
 
-        cornerControl.addEventListener('click', function() {
-            currentMode = modes.CORNER;
-            digitControl.classList.remove('selected');
-            cornerControl.classList.add('selected');
-            middleControl.classList.remove('selected');
-            colorControl.classList.remove('selected');
+        cornerControl.addEventListener('click', function(event) {
+            event.preventDefault();
+            updateCurrentMode(modes.CORNER)
         });
 
-        middleControl.addEventListener('click', function() {
-            currentMode = modes.MIDDLE;
-            digitControl.classList.remove('selected');
-            cornerControl.classList.remove('selected');
-            middleControl.classList.add('selected');
-            colorControl.classList.remove('selected');
+        middleControl.addEventListener('click', function(event) {
+            event.preventDefault();
+            updateCurrentMode(modes.MIDDLE);
         });
 
-        colorControl.addEventListener('click', function() {
-            currentMode = modes.COLOR;
-            digitControl.classList.remove('selected');
-            cornerControl.classList.remove('selected');
-            middleControl.classList.remove('selected');
-            colorControl.classList.add('selected');
+        colorControl.addEventListener('click', function(event) {
+            event.preventDefault();
+            updateCurrentMode(modes.COLOR);
         });
 
         document.addEventListener('keydown', function(event) {
-            switch (event.key) {
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7':
-                case '8':
-                case '9':
-                    switch(currentMode) {
-                        case modes.COLOR:
-                            applyColorToSelectedCells(parseInt(event.key));
-                            break;
-                        case modes.DIGIT:
-                            placeDigitInSelectedSells(parseInt(event.key));
-                            break;
-                        case modes.CORNER:
-                            placeCornerMarkInSelectedCells(parseInt(event.key));
-                            break;
+            if(!keyPressed) {
+                keyPressed = true;
+                var number = 0;
+                switch (event.code) {
+                    case 'Digit1':
+                    case 'Numpad1':
+                        number = 1;
+                        break;
+                    case 'Digit2':
+                    case 'Numpad2':
+                        number = 2;
+                        break;
+                    case 'Digit3':
+                    case 'Numpad3':
+                        number = 3;
+                        break;
+                    case 'Digit4':
+                    case 'Numpad4':
+                        number = 4;
+                        break;
+                    case 'Digit5':
+                    case 'Numpad5':
+                        number = 5;
+                        break;
+                    case 'Digit6':
+                    case 'Numpad6':
+                        number = 6;
+                        break;
+                    case 'Digit7':
+                    case 'Numpad7':
+                        number = 7;
+                        break;
+                    case 'Digit8':
+                    case 'Numpad8':
+                        number = 8;
+                        break;
+                    case 'Digit9':
+                    case 'Numpad9':
+                        number = 9;
+                        break;
+                    case 'Backspace':
+                        clearSelectedCells();
+                        break;
+                }
+                if(number > 0) {
+                    if(event.shiftKey) {
+                        placeCornerMarkInSelectedCells(number);
+                    } else {
+                        switch(currentMode) {
+                            case modes.COLOR:
+                                updateSelectedCellsForColor(number - 1);
+                                break;
+                            case modes.DIGIT:
+                                placeDigitInSelectedSells(number);
+                                break;
+                            case modes.CORNER:
+                                placeCornerMarkInSelectedCells(number);
+                                break;
+                            case modes.MIDDLE:
+                                placeMiddleMarkInSelectedCells(number);
+                                break;
+                        }
                     }
-                    break;
+                }
+                if(event.key === 'Shift') {
+                    updateControls(modes.CORNER);
+                    keyPressed = false;
+                }
+            }
+            switch(event.code) {
                 case 'ArrowDown':
                     event.preventDefault();
                     moveCellSelection(direction.DOWN)
@@ -164,53 +220,177 @@ document.addEventListener('DOMContentLoaded', function() {
                     event.preventDefault();
                     moveCellSelection(direction.UP)
                     break;
-                case 'Backspace':
-                    clearSelectedCells();
+                case 'PageDown':
+                    event.preventDefault();
+                    changeMode(direction.DOWN);
+                    break;
+                case 'PageUp':
+                    event.preventDefault();
+                    changeMode(direction.UP);
                     break;
             }
         });
     }
 
-    function applyColorToSelectedCells(color) {
+    document.addEventListener('keyup', function(event) {
+        if(keyPressed === true) {
+            keyPressed = false;
+        }
+        if(event.key === 'Shift') {
+            updateControls(currentMode);
+        }
+    });
+
+    function changeMode(rotateDirection) {
+        switch(rotateDirection) {
+            case direction.UP:
+                switch(currentMode) {
+                    case modes.DIGIT:
+                        updateCurrentMode(modes.COLOR);
+                        break;
+                    case modes.CORNER:
+                        updateCurrentMode(modes.DIGIT);
+                        break;
+                    case modes.MIDDLE:
+                        updateCurrentMode(modes.CORNER);
+                        break;
+                    case modes.COLOR:
+                        updateCurrentMode(modes.MIDDLE);
+                        break;
+                }
+            break;
+            case direction.DOWN:
+                switch(currentMode) {
+                    case modes.DIGIT:
+                        updateCurrentMode(modes.CORNER);
+                        break;
+                    case modes.CORNER:
+                    updateCurrentMode(modes.MIDDLE);
+                        break;
+                    case modes.MIDDLE:
+                    updateCurrentMode(modes.COLOR);
+                        break;
+                    case modes.COLOR:
+                        updateCurrentMode(modes.DIGIT);
+                        break;
+                }
+            break;
+        }
+    }
+
+    function updateSelectedCellsForColor(color) {
         const selectedCells = getSelectedCells();
-        for(const cell of selectedCells) {
-            const cellColors = cell.getElementsByClassName('color-segment');
-            const existingNumberOfColors = cellColors.length;
-            const cellBackground = cell.getElementsByClassName('cell-background')[0];
-            const cellBackgroundXpos = parseFloat(cellBackground.getAttribute('x'));
-            const cellBackgroundYpos = parseFloat(cellBackground.getAttribute('y'));
-            switch (existingNumberOfColors) {
-                case 0:
-                    const oneColorRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    oneColorRect.setAttribute('class', 'color-segment');
-                    oneColorRect.setAttribute('x', cellBackgroundXpos + .5);
-                    oneColorRect.setAttribute('y', cellBackgroundYpos + .5);
-                    oneColorRect.setAttribute('width', '78');
-                    oneColorRect.setAttribute('height', '78');
-                    oneColorRect.setAttribute('fill', colors[color]);
-                    oneColorRect.setAttribute('opacity', '0.25');
-                    cellBackground.after(oneColorRect);
-                    break;
-                case 1:
-                    const firstColor = cellColors[0].getAttribute('fill');
-                    if(firstColor === color) {
-                        clearCellColors(cell);
-                        return;
+        var colorMatchCount = 0;
+        var cellsWithoutThisColor = [];
+        for(const colorCheckCell of selectedCells) {
+            const cellColors = colorCheckCell.getElementsByClassName('color-segment');
+            if(cellColors.length === 0) {
+                cellsWithoutThisColor.push(colorCheckCell);
+            } else {
+                for(const cellColor of cellColors) {
+                    if(cellColor.getAttribute('fill') === colors[color]) {
+                        colorMatchCount++;
+                    } else {
+                        cellsWithoutThisColor.push(colorCheckCell);
                     }
-                    const firstColorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    firstColorSegment.setAttribute('class', 'color-segment');
-                    firstColorSegment.setAttribute('fill', firstColor)
-                    firstColorSegment.setAttribute('d', 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z');
-                    firstColorSegment.setAttribute('opacity', 0.65);
-                    const secondColorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    secondColorSegment.setAttribute('class', 'color-segment');
-                    secondColorSegment.setAttribute('fill', colors[color]);
-                    secondColorSegment.setAttribute('d', 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z');
-                    secondColorSegment.setAttribute('opacity', 0.65);
-                    clearCellColors(cell);
-                    cellBackground.after(firstColorSegment);
-                    cellBackground.after(secondColorSegment);
+                }
             }
+        }
+        if(colorMatchCount === selectedCells.length) {
+            for(const cell of selectedCells) {
+                removeCellColor(cell, colors[color]);
+            }
+        } else {
+            for(const cell of cellsWithoutThisColor) {
+                addColorToCell(cell, color);
+            }
+        }
+    }
+
+    function removeCellColor(cell, colorHEX) {
+        const cellColors = cell.getElementsByClassName('color-segment');
+        var existingCellColors = [];
+        for(const colorSegment of cellColors) {
+            existingCellColors.push(colorSegment.getAttribute('fill'));
+        }
+        clearCellColors(cell);
+        const indexOfColorToRemove = existingCellColors.indexOf(colorHEX);
+        existingCellColors.splice(indexOfColorToRemove, 1);
+        for(var i = 0; i < existingCellColors.length; i++) {
+            addColorToCell(cell, colors.indexOf(existingCellColors[i]));
+        }
+    }
+
+    function addColorToCell(cell, color) {
+        const cellColors = cell.getElementsByClassName('color-segment');
+        const existingNumberOfColors = cellColors.length;
+        const cellBackground = cell.getElementsByClassName('cell-background')[0];
+        const cellBackgroundXpos = parseFloat(cellBackground.getAttribute('x'));
+        const cellBackgroundYpos = parseFloat(cellBackground.getAttribute('y'));
+        switch (existingNumberOfColors) {
+            case 0:
+                const oneColorRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                oneColorRect.setAttribute('class', 'color-segment');
+                oneColorRect.setAttribute('x', cellBackgroundXpos + .5);
+                oneColorRect.setAttribute('y', cellBackgroundYpos + .5);
+                oneColorRect.setAttribute('width', '78');
+                oneColorRect.setAttribute('height', '78');
+                oneColorRect.setAttribute('fill', colors[color]);
+                oneColorRect.setAttribute('opacity', '0.25');
+                cellBackground.after(oneColorRect);
+                break;
+            case 1:
+                const firstColorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                firstColorSegment.setAttribute('class', 'color-segment');
+                firstColorSegment.setAttribute('fill', cellColors[0].getAttribute('fill'));
+                firstColorSegment.setAttribute('d', 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z');
+                firstColorSegment.setAttribute('opacity', 0.65);
+                const secondColorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                secondColorSegment.setAttribute('class', 'color-segment');
+                secondColorSegment.setAttribute('fill', colors[color]);
+                secondColorSegment.setAttribute('d', 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z');
+                secondColorSegment.setAttribute('opacity', 0.65);
+                clearCellColors(cell);
+                cellBackground.after(firstColorSegment);
+                cellBackground.after(secondColorSegment);
+                break;
+        }
+    }
+
+    function updateCurrentMode(mode) {
+        previousMode = currentMode;
+        if(currentMode != mode) {
+            currentMode = mode;
+        }
+        updateControls(currentMode);
+    }
+
+    function updateControls(mode) {
+        switch(mode) {
+            case modes.DIGIT:
+                digitControl.classList.add('selected');
+                cornerControl.classList.remove('selected');
+                middleControl.classList.remove('selected');
+                colorControl.classList.remove('selected');
+                break;
+            case modes.CORNER:
+                digitControl.classList.remove('selected');
+                cornerControl.classList.add('selected');
+                middleControl.classList.remove('selected');
+                colorControl.classList.remove('selected');
+                break;
+            case modes.MIDDLE:
+                digitControl.classList.remove('selected');
+                cornerControl.classList.remove('selected');
+                middleControl.classList.add('selected');
+                colorControl.classList.remove('selected');
+                break;
+            case modes.COLOR:
+                digitControl.classList.remove('selected');
+                cornerControl.classList.remove('selected');
+                middleControl.classList.remove('selected');
+                colorControl.classList.add('selected');
+                break;
         }
     }
 
@@ -232,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedCells = getSelectedCells();
         for(const cell of selectedCells) {
             const cellBackground = cell.getElementsByClassName('cell-background')[0];
-            clearCellDigit(cell);
+            prepareCellForDigit(cell);
             const newCellDigit = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             newCellDigit.setAttribute('class', 'placed-digit');
             newCellDigit.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + 26);
@@ -263,7 +443,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     switch(cellCornerMarks.length) {
                         case 0:
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'top-left')
+                            newCornerMark.setAttribute('id', cornerPositions.TOP_LEFT)
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.topLeft.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.topLeft.y);
                             newCornerMark.textContent = String(digit);
@@ -272,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 1:
                             newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'top-right')
+                            newCornerMark.setAttribute('id', cornerPositions.TOP_RIGHT)
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.topRight.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.topRight.y);
                             newCornerMark.textContent = String(digit);
@@ -281,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 2:
                             newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'bottom-left')
+                            newCornerMark.setAttribute('id', cornerPositions.BOTTOM_LEFT);
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.bottomLeft.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.bottomLeft.y);
                             newCornerMark.textContent = String(digit);
@@ -290,7 +470,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 3:
                             newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'bottom-right')
+                            newCornerMark.setAttribute('id', cornerPositions.BOTTOM_RIGHT)
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.bottomRight.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.bottomRight.y);
                             newCornerMark.textContent = String(digit);
@@ -299,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 4:
                             newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'middle-left')
+                            newCornerMark.setAttribute('id', cornerPositions.MIDDLE_LEFT)
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.middleLeft.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.middleLeft.y);
                             newCornerMark.textContent = String(digit);
@@ -308,7 +488,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 5:
                             newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'middle-right')
+                            newCornerMark.setAttribute('id', cornerPositions.MIDDLE_RIGHT)
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.middleRight.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.middleRight.y);
                             newCornerMark.textContent = String(digit);
@@ -317,7 +497,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 6:
                             newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'top-middle')
+                            newCornerMark.setAttribute('id', cornerPositions.TOP_MIDDLE)
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.topMiddle.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.topMiddle.y);
                             newCornerMark.textContent = String(digit);
@@ -326,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 7:
                             newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'bottom-middle')
+                            newCornerMark.setAttribute('id', cornerPositions.BOTTOM_MIDDLE)
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.bottomMiddle.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.bottomMiddle.y);
                             newCornerMark.textContent = String(digit);
@@ -335,7 +515,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         case 8:
                             newCornerMark = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             newCornerMark.setAttribute('class', 'corner-mark');
-                            newCornerMark.setAttribute('id', 'middle-middle')
+                            newCornerMark.setAttribute('id', cornerPositions.MIDDLE_MIDDLE)
                             newCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.middleMiddle.x);
                             newCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.middleMiddle.y);
                             newCornerMark.textContent = String(digit);
@@ -347,17 +527,177 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function placeMiddleMarkInSelectedCells(digit) {
+        const selectedCells = getSelectedCells();
+        for(const cell of selectedCells) {
+            const cellPlacedDigits = cell.getElementsByClassName('placed-digit');
+            const cellGivenDigits = cell.getElementsByClassName('given-digit');
+            const cellMiddleMarks = cell.getElementsByClassName('middle-marks');
+            if(cellPlacedDigits.length === 0 && cellGivenDigits.length === 0) {
+                const cellBackground = cell.getElementsByClassName('cell-background')[0];
+                if(cellPlacedDigits.length === 0 && cellGivenDigits.length === 0) {
+                    if(cellMiddleMarks.length === 0) {
+                        const newMiddleMarkContainer = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        newMiddleMarkContainer.setAttribute('class', 'middle-marks');
+                        newMiddleMarkContainer.setAttribute('dominant-baseline', 'middle');
+                        newMiddleMarkContainer.setAttribute('text-anchor', 'middle');
+                        newMiddleMarkContainer.setAttribute('data-count', '0');
+                        newMiddleMarkContainer.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + 38.5);
+                        newMiddleMarkContainer.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + 41.5);
+                        cell.appendChild(newMiddleMarkContainer);
+                    }
+                    const cellMiddleMarksDigits = cellMiddleMarks[0].getElementsByTagName('tspan');
+                    var middleMarkFoundAndRemoved = false;
+                    for(const middleMarkDigit of cellMiddleMarksDigits) {
+                        if(middleMarkDigit.textContent === String(digit)) {
+                            middleMarkDigit.remove();
+                            cellMiddleMarks[0].setAttribute('data-count', parseInt(cellMiddleMarks[0].getAttribute('data-count')) - 1);
+                            if(parseInt(cellMiddleMarks[0].getAttribute('data-count')) === 0) {
+                                cellMiddleMarks[0].remove();
+                            }
+                            middleMarkFoundAndRemoved = true;
+                        }
+                    }
+                    if(!middleMarkFoundAndRemoved) {
+                        const middleMarkDigit = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                        middleMarkDigit.textContent = String(digit);
+                        cellMiddleMarks[0].appendChild(middleMarkDigit);
+                        cellMiddleMarks[0].setAttribute('data-count', parseInt(cellMiddleMarks[0].getAttribute('data-count')) + 1);
+                    }
+                }
+            }
+        }       
+    }
+
+    function shiftCornerMark(cell, fromPosition, toPosition) {
+        const cellBackground = cell.getElementsByClassName('cell-background')[0];
+        const cornerMark = getCornerMarkByID(cell, fromPosition);
+        cornerMark.setAttribute('id', toPosition);
+        cornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets[toPosition].x);
+        cornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets[toPosition].y);
+    }
+
     function updateCornerMarks(cell, removedPosition) {
         const cellCornerMarks = cell.getElementsByClassName('corner-mark');
         const cellBackground = cell.getElementsByClassName('cell-background')[0];
         switch(cellCornerMarks.length) {
             case 1:
-                if(String(removedPosition) === 'top-left') {
-                    const topRightCornerMark = getCornerMarkByID(cell, 'top-right');
-                    topRightCornerMark.setAttribute('id', 'top-left');
-                    topRightCornerMark.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + cornerMarkOffsets.topLeft.x);
-                    topRightCornerMark.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + cornerMarkOffsets.topLeft.y);
+                if(String(removedPosition) === cornerPositions.TOP_LEFT) {
+                    shiftCornerMark(cell, cornerPositions.TOP_RIGHT, cornerPositions.TOP_LEFT);
                 }
+                break;
+            case 2:
+                if(String(removedPosition) != cornerPositions.BOTTOM_LEFT) {
+                    if(String(removedPosition) === cornerPositions.TOP_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_RIGHT, cornerPositions.TOP_LEFT);
+                    }
+                    shiftCornerMark(cell, cornerPositions.BOTTOM_LEFT, cornerPositions.TOP_RIGHT);
+                }
+                break;
+            case 3:
+                if(String(removedPosition) != cornerPositions.BOTTOM_RIGHT) {
+                    if(String(removedPosition) === cornerPositions.TOP_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_RIGHT, cornerPositions.TOP_LEFT);
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_LEFT, cornerPositions.TOP_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.TOP_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_LEFT, cornerPositions.TOP_RIGHT);
+                    }
+                    shiftCornerMark(cell, cornerPositions.BOTTOM_RIGHT, cornerPositions.BOTTOM_LEFT);
+                }
+                break;
+            case 4:
+                if(String(removedPosition) != cornerPositions.MIDDLE_LEFT) {
+                    if(String(removedPosition) === cornerPositions.TOP_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_RIGHT, cornerPositions.TOP_LEFT);
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_LEFT, cornerPositions.TOP_RIGHT);
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_RIGHT, cornerPositions.BOTTOM_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.TOP_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_LEFT, cornerPositions.TOP_RIGHT);
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_RIGHT, cornerPositions.BOTTOM_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_RIGHT, cornerPositions.BOTTOM_LEFT);
+                    }
+                    shiftCornerMark(cell, cornerPositions.MIDDLE_LEFT, cornerPositions.BOTTOM_RIGHT);
+                }
+                break;
+            case 5:
+                if(String(removedPosition) != cornerPositions.MIDDLE_RIGHT) {
+                    if(String(removedPosition) === cornerPositions.TOP_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_RIGHT, cornerPositions.TOP_LEFT);
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_LEFT, cornerPositions.TOP_RIGHT);
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_RIGHT, cornerPositions.BOTTOM_LEFT);
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_LEFT, cornerPositions.BOTTOM_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.TOP_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_LEFT, cornerPositions.TOP_RIGHT);
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_RIGHT, cornerPositions.BOTTOM_LEFT);
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_LEFT, cornerPositions.BOTTOM_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_RIGHT, cornerPositions.BOTTOM_LEFT);
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_LEFT, cornerPositions.BOTTOM_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_LEFT, cornerPositions.BOTTOM_RIGHT);
+                    }
+                    shiftCornerMark(cell, cornerPositions.MIDDLE_RIGHT, cornerPositions.MIDDLE_LEFT);
+                }
+                break;
+            case 6:
+                if(String(removedPosition) != cornerPositions.TOP_MIDDLE) {
+                    if(String(removedPosition) === cornerPositions.TOP_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_MIDDLE, cornerPositions.TOP_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.TOP_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_MIDDLE, cornerPositions.TOP_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.MIDDLE_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_MIDDLE, cornerPositions.MIDDLE_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.MIDDLE_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_MIDDLE, cornerPositions.MIDDLE_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_MIDDLE, cornerPositions.BOTTOM_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.TOP_MIDDLE, cornerPositions.BOTTOM_RIGHT);
+                    }
+                }
+                break;
+            case 7:
+                if(String(removedPosition) != cornerPositions.BOTTOM_MIDDLE) {
+                    if(String(removedPosition) === cornerPositions.TOP_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_MIDDLE, cornerPositions.TOP_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.TOP_MIDDLE) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_MIDDLE, cornerPositions.TOP_MIDDLE);
+                    } else if(String(removedPosition) === cornerPositions.TOP_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_MIDDLE, cornerPositions.TOP_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.MIDDLE_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_MIDDLE, cornerPositions.MIDDLE_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.MIDDLE_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_MIDDLE, cornerPositions.MIDDLE_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_MIDDLE, cornerPositions.BOTTOM_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.BOTTOM_MIDDLE, cornerPositions.BOTTOM_RIGHT);
+                    }
+                }
+                
+                break;
+            case 8:
+                if(String(removedPosition) != cornerPositions.MIDDLE_MIDDLE) {
+                    if(String(removedPosition) === cornerPositions.TOP_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_MIDDLE, cornerPositions.TOP_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.TOP_MIDDLE) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_MIDDLE, cornerPositions.TOP_MIDDLE);
+                    } else if(String(removedPosition) === cornerPositions.TOP_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_MIDDLE, cornerPositions.TOP_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_MIDDLE, cornerPositions.BOTTOM_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_MIDDLE) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_MIDDLE, cornerPositions.BOTTOM_MIDDLE);
+                    } else if(String(removedPosition) === cornerPositions.BOTTOM_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_MIDDLE, cornerPositions.BOTTOM_RIGHT);
+                    } else if(String(removedPosition) === cornerPositions.MIDDLE_LEFT) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_MIDDLE, cornerPositions.MIDDLE_LEFT);
+                    } else if(String(removedPosition) === cornerPositions.MIDDLE_RIGHT) {
+                        shiftCornerMark(cell, cornerPositions.MIDDLE_MIDDLE, cornerPositions.MIDDLE_RIGHT);
+                    }
+                }
+                break;
         }
     }
 
@@ -375,6 +715,38 @@ document.addEventListener('DOMContentLoaded', function() {
         const cellDigit = cell.getElementsByClassName('placed-digit');
         if(cellDigit.length > 0) {
             cellDigit[0].remove();
+            toggleCellConfigVisibility(cell, 'visible');
+        }
+    }
+
+    function prepareCellForDigit(cell) {
+        const cellDigit = cell.getElementsByClassName('placed-digit');
+        if(cellDigit.length > 0) {
+            cellDigit[0].remove();
+            toggleCellConfigVisibility(cell, 'visible');
+        } else {
+            toggleCellConfigVisibility(cell, 'hidden');
+        }
+    }
+
+    function toggleCellConfigVisibility(cell, visibility) {
+        const cellCornerMarks = cell.getElementsByClassName('corner-mark');
+        if(cellCornerMarks.length > 0) {
+            for(const cornerMark of cellCornerMarks) {
+                cornerMark.setAttribute('visibility', visibility)
+            }
+        }
+        const cellMiddleMarks = cell.getElementsByClassName('middle-marks');
+        if(cellMiddleMarks.length > 0) {
+            for(const middleMark of cellMiddleMarks) {
+                middleMark.setAttribute('visibility', visibility)
+            }
+        }
+        const cellColors = cell.getElementsByClassName('color-segment');
+        if(cellColors.length > 0) {
+            for(const colorSegment of cellColors) {
+                colorSegment.setAttribute('visibility', visibility)
+            }
         }
     }
 
@@ -390,12 +762,18 @@ document.addEventListener('DOMContentLoaded', function() {
         for(const cell of selectedCells) {
             if(cell.getElementsByClassName('placed-digit').length > 0) {
                 clearCellDigit(cell);
+            } else if(cell.getElementsByClassName('middle-marks').length > 0) {
+                clearCellMiddleMarks(cell);
             } else if(cell.getElementsByClassName('corner-mark').length > 0) {
                 clearCellCornerMarks(cell);
             } else if(cell.getElementsByClassName('color-segment').length > 0) {
                 clearCellColors(cell);
             }
         }
+    }
+
+    function clearCellMiddleMarks(cell) {
+        cell.getElementsByClassName('middle-marks')[0].remove();
     }
 
     function getSelectedCells() {

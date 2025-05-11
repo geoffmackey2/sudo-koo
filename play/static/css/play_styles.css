@@ -52,7 +52,7 @@
 }
 
 #game-grid g text.middle-marks[data-count="8"] {
-    font-size: .65em
+    font-size: .6em
 }
 
 #game-grid g text.middle-marks[data-count="7"] {
@@ -68,7 +68,7 @@
 }
 
 #game-grid g text.middle-marks[data-count="4"] {
-    font-size: 1em
+    font-size: 1.2em
 }
 
 a.mode-selector {
