@@ -1,7 +1,14 @@
+#header {
+    position: absolute; 
+    top: 0px; 
+    left: 20px;
+}
+
 #game-grid {
     cursor: pointer;
-    position: relative;
-    float:left;
+    position: absolute;
+    left: 20px;
+    top: 108px;
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
     perspective: 1000;
@@ -33,6 +40,10 @@
 #game-grid g rect.cell-background {
     fill: #050A1C;
     stroke: #6D6D6D;
+}
+
+#game-grid g rect.conflict {
+    fill: #802C2C;
 }
 
 #game-grid g rect.selected-cell {
@@ -71,27 +82,57 @@
     font-size: 1.2em
 }
 
-a.mode-selector {
+a.game-control {
     display: block;
+    float: left;
     border: 2px solid #61C9FF;
     border-radius: 5px;
-    margin-bottom: 20px;
+    margin-right: 20px;
+    margin-top: 20px;
     width: 75px;
     height: 75px;
 }
 
-a.mode-selector.selected {
+a.game-control.selected {
     border-color: #FFFFFF;
 }
 
 #game-controls {
-    position: relative; 
-    float: left; 
-    margin-left: 20px;
+    position: absolute;  
+    left: 20px;
+    top: 862px;
 }
 
 #game {
     position: relative; 
     left: 0px; 
     top: 0px;
+}
+
+#error-message {
+    position: absolute;
+    top:131px;
+    left: 124px;
+    border: 3px solid #A12D4E;
+    border-radius: 5px; font-weight: bold;
+    font-size: 22px; padding: 10px;
+    background-color: #000000;
+    width: 540px;
+    display: none;
+    transition: opacity 200ms ease-in-out;
+    opacity: 0;
+}
+
+#happy-message {
+    position: absolute;
+    top:131px;
+    left: 124px;
+    border: 3px solid #19bb52;
+    border-radius: 5px; font-weight: bold;
+    font-size: 22px; padding: 10px;
+    background-color: #000000;
+    width: 540px;
+    display: none;
+    transition: opacity 200ms ease-in-out;
+    opacity: 0;
 }

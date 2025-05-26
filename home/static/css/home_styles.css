@@ -2,6 +2,10 @@ h1 {
     text-align: center;
 }
 
+h2 {
+    margin-bottom: 40px;
+}
+
 div.play-button {
     margin-bottom: 20px;
 }

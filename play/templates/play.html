@@ -9,12 +9,24 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const grid = document.getElementById('game-grid');
+    const gridBackground = grid.getElementById('grid-background');
     const cells = grid.getElementsByClassName('cell');
+    const gameControls = document.getElementById('game-controls');
+    const digitControl = document.getElementById('digit-control');
+    const cornerControl = document.getElementById('corner-control');
+    const middleControl = document.getElementById('middle-control');
+    const colorControl = document.getElementById('color-control');
+    const createButton = document.getElementById('create-button');
+    const playButton = document.getElementById('play-button');
+    const cancelButton = document.getElementById('cancel-button');
+    const errorMessage = document.getElementById('error-message');
+    const happyMessage = document.getElementById('happy-message');
     const modes = {
         DIGIT: 'digit',
         CORNER: 'corner',
         MIDDLE: 'middle',
-        COLOR: 'color'
+        COLOR: 'color',
+        CREATE: 'create'
     }
     const direction = {
         UP: 'up',
@@ -22,17 +34,17 @@ document.addEventListener('DOMContentLoaded', function() {
         LEFT: 'left',
         RIGHT: 'right'
     }
-    const colors = [
-        '#620000',
-        '#272727',
-        '#064655',
-        '#360B72',
-        '#6D0B46',
-        '#084928',
-        '#884210',
-        '#3F2114',
-        '#525252'
-    ]
+    const colors = {
+        1: '#620000',
+        2: '#117845',
+        3: '#000ACE',
+        4: '#670EE5',
+        5: '#8A135A',
+        6: '#884210',
+        7: '#3F2114',
+        8: '#141414',
+        9: '#525252'
+    }
     const cornerMarkOffsets = {
         topLeft: { x: 6, y: 23.5 },
         topMiddle: { x: 32, y: 23.5 },
@@ -55,64 +67,225 @@ document.addEventListener('DOMContentLoaded', function() {
         BOTTOM_MIDDLE: 'bottomMiddle',
         BOTTOM_RIGHT: 'bottomRight'
     }
+    const historyActions = {
+        PLACE_DIGIT: 'placedDigits',
+        PLACE_CORNER_MARK: 'cornerMarks',
+        PLACE_MIDDLE_MARK: 'middleMarks',
+        PLACE_COLOR: 'colors',
+        CLEAR_CELLS: 'clearCells'
+    }
+    const errors = {
+        INVALID_PUZZLE: 'Sorry, this puzzle isn\'t valid! Double-check your given digits.',
+        SERVER_ERROR: 'Sorry, something went wrong! Try again.'
+    }
+    const stepDirection = {
+        BACKWARD: 'backward',
+        FORWARD: 'forward'
+    }
+    const boxes = setupBoxes();
+    var gameState = [];
     var lastCellSelection;
-    var dragging = false;
-    var selectedByDrag = false;
     var currentMode = modes.DIGIT;
     var previousMode;
-    var keyPressed = false;
-    var shiftPressed = false;
-
-    const digitControl = document.getElementById('digit-control');
-    const cornerControl = document.getElementById('corner-control');
-    const middleControl = document.getElementById('middle-control');
-    const colorControl = document.getElementById('color-control');
+    var originalDragTarget;
+    var activeGame;
+    var historyIndex = -1;
+    var undoHappened = false;
 
     function setupGame() {
-        for (const cell of cells) {
-            cell.addEventListener('click', function() {
-                event.preventDefault();
+        checkLocalStorage();
+        setupControls();
 
-                if(isSelected(cell) && grid.getElementsByClassName('selected-cell').length === 1 && !selectedByDrag) {
-                    deselectCell(cell);
+        var keyPressed = false;
+
+        document.addEventListener("pointerdown", function (event) {
+            event.preventDefault();
+            const pointerX = event.pageX + window.scrollX;
+            const pointerY = event.pageY + window.scrollY;
+            var dragging = false;
+            
+            if(!event.shiftKey && !targetIsControlOrBackground(event.target)) {
+                if(event.target.parentElement === lastCellSelection && getSelectedCells().length === 1) {
+                    deselectAll(lastCellSelection);
                 } else {
                     deselectAll();
-                    selectCell(cell);
-                    selectedByDrag = false;
                 }
-            });
-        }
-
-        grid.addEventListener("pointerdown", selectCellsOnDrag);
-        function selectCellsOnDrag(event) {
-            event.preventDefault();
+            }
+            for (const cell of cells) {
+                if (checkPointerIntersection({x: pointerX, y: pointerY}, cell)) {
+                    if(!isSelected(cell)) {
+                        selectCell(cell);
+                    } else {
+                        deselectCell(cell);
+                    }
+                }
+            }
+            if(!checkPointerIntersection({x: pointerX, y: pointerY}, grid) &&
+               !checkPointerIntersection({x: pointerX, y: pointerY}, gameControls)) {
+                deselectAll();
+            }
 
             function makeSelections(event) {
-                if(dragging === false) {
-                    deselectAll();
-                    if(lastCellSelection != null) {
-                        selectCell(lastCellSelection);
+                if(currentMode != modes.CREATE) {
+                    const pointerX = event.pageX + window.scrollX;
+                    const pointerY = event.pageY + window.scrollY;
+
+                    if(originalDragTarget === null) {
+                        originalDragTarget = event.target;
+                    }
+
+                    if(dragging && checkPointerIntersection({x: pointerX, y: pointerY}, grid) && targetIsControlOrBackground(originalDragTarget)) {
+                        for(const cell of cells) {
+                            if (checkPointerIntersection({x: pointerX, y: pointerY}, cell)) {
+                                deselectAll();
+                                originalDragTarget = false;
+                            }
+                        }
+                    }
+                    if(!dragging && !event.shiftKey && !targetIsControlOrBackground(event.target)) {
+                        deselectAll();
                     }
                     dragging = true;
-                }
-                const pointerX = event.pageX + window.scrollX;
-                const pointerY = event.pageY + window.scrollY;
 
-                for (const cell of cells) {
-                    if (checkPointerCellIntersection({x: pointerX, y: pointerY}, cell)) {
-                        selectCell(cell);
-                        selectedByDrag = true;
+                    for (const cell of cells) {
+                        if (checkPointerIntersection({x: pointerX, y: pointerY}, cell)) {
+                            selectCell(cell);
+                        }
                     }
                 }
             }
 
-            grid.addEventListener("pointermove", makeSelections);
-            grid.addEventListener("pointerup", () => {
+            document.addEventListener("pointermove", makeSelections);
+            document.addEventListener("pointerup", () => {
+                document.removeEventListener("pointermove", makeSelections);
                 dragging = false;
-                grid.removeEventListener("pointermove", makeSelections);
+                originalDragTarget = null;
             });
-        }
+        });
 
+        document.addEventListener('keydown', function(event) {
+            event.preventDefault();
+            if(!keyPressed) {
+                keyPressed = true;
+                var number = 0;
+                if(/Digit[1-9]|Numpad[1-9]/.test(event.code)) {
+                    number = parseInt(event.code.split(/Digit|Numpad/, 2)[1]);
+                }
+                if(event.altKey && number === 0) {
+                    updateCurrentMode(modes.CORNER);
+                    keyPressed = false;
+                } else if(event.ctrlKey && number === 0) {
+                    if(event.code === 'KeyZ') {
+                        if(event.shiftKey) {
+                            stepThroughHistory(stepDirection.FORWARD);
+                        } else {
+                            stepThroughHistory(stepDirection.BACKWARD);
+                        }
+                    } else {
+                        updateCurrentMode(modes.MIDDLE);
+                    }
+                    keyPressed = false;
+                }
+                if(number > 0) {
+                    switch(currentMode) {
+                        case modes.CREATE:
+                            placeGivenDigit(number);
+                            break;
+                        case modes.COLOR:
+                            updateSelectedCellsForColor(number, true);
+                            break;
+                        case modes.DIGIT:
+                            placeDigitInSelectedSells(number, true);
+                            break;
+                        case modes.CORNER:
+                            placeCornerMarkInSelectedCells(number, true);
+                            break;
+                        case modes.MIDDLE:
+                            placeMiddleMarkInSelectedCells(number, true);
+                            break;
+                    }
+                    
+                }
+                if (event.code === 'Backspace') {
+                    clearSelectedCells(true);
+                }
+            }
+            switch(event.code) {
+                case 'ArrowDown':
+                    moveCellSelection(direction.DOWN, event.shiftKey);
+                    break;
+                case 'ArrowLeft':
+                    moveCellSelection(direction.LEFT, event.shiftKey);
+                    break;
+                case 'ArrowRight':
+                    moveCellSelection(direction.RIGHT, event.shiftKey);
+                    break;
+                case 'ArrowUp':
+                    moveCellSelection(direction.UP, event.shiftKey);
+                    break;
+                case 'PageDown':
+                    changeMode(direction.DOWN);
+                    break;
+                case 'PageUp':
+                    changeMode(direction.UP);
+                    break;
+            }
+        });
+        
+        document.addEventListener('keyup', function(event) {
+            if(keyPressed) {
+                keyPressed = false;
+            }
+            if(event.code === 'AltLeft' || 
+               event.code === 'AltRight' || 
+               event.code === 'ControlLeft' || 
+               event.code === 'ControlRight') {
+                updateCurrentMode(previousMode);
+            }
+        });
+    }
+
+    function checkLocalStorage() {
+        const puzzleData = localStorage.getItem('puzzleData');
+        if(puzzleData != null) {
+            activeGame = true;
+            gameState = puzzleData.split(',');
+            for(var i = 0; i < cells.length; i++) {
+                if(gameState[i] != '0') {
+                    lastCellSelection = cells[i];
+                    placeGivenDigit(gameState[i]);
+                }
+            }
+        }
+        const puzzleHistory = JSON.parse(decryptString(localStorage.getItem('puzzleHistory')));
+        if(puzzleHistory != null) {
+            historyIndex = -1;
+            for(var i = 0; i <= parseInt(puzzleHistory['lastHistoryIndex']); i++) {
+                stepThroughHistory(stepDirection.FORWARD);
+            }
+        }
+    }
+
+    function placeGivenDigit(digit) {
+        const cellGivenDigits = lastCellSelection.getElementsByClassName('given-digit');
+        const cellBackground = lastCellSelection.getElementsByClassName('cell-background')[0];
+        if(cellGivenDigits.length === 0) {
+            const givenDigit = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            givenDigit.setAttribute('class', 'given-digit');
+            givenDigit.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + 26);
+            givenDigit.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + 55.5);
+            givenDigit.textContent = String(digit);
+            lastCellSelection.appendChild(givenDigit);
+        } else {
+            if(cellGivenDigits[0].textContent === String(digit)) {
+                cellGivenDigits[0].remove();
+            } else {
+                cellGivenDigits[0].textContent = String(digit);
+            }
+        }
+    }
+
+    function setupControls() {
         digitControl.addEventListener('click', function(event) {
             event.preventDefault();
             updateCurrentMode(modes.DIGIT);
@@ -133,113 +306,164 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCurrentMode(modes.COLOR);
         });
 
-        document.addEventListener('keydown', function(event) {
-            if(!keyPressed) {
-                keyPressed = true;
-                var number = 0;
-                switch (event.code) {
-                    case 'Digit1':
-                    case 'Numpad1':
-                        number = 1;
-                        break;
-                    case 'Digit2':
-                    case 'Numpad2':
-                        number = 2;
-                        break;
-                    case 'Digit3':
-                    case 'Numpad3':
-                        number = 3;
-                        break;
-                    case 'Digit4':
-                    case 'Numpad4':
-                        number = 4;
-                        break;
-                    case 'Digit5':
-                    case 'Numpad5':
-                        number = 5;
-                        break;
-                    case 'Digit6':
-                    case 'Numpad6':
-                        number = 6;
-                        break;
-                    case 'Digit7':
-                    case 'Numpad7':
-                        number = 7;
-                        break;
-                    case 'Digit8':
-                    case 'Numpad8':
-                        number = 8;
-                        break;
-                    case 'Digit9':
-                    case 'Numpad9':
-                        number = 9;
-                        break;
-                    case 'Backspace':
-                        clearSelectedCells();
-                        break;
-                }
-                if(number > 0) {
-                    if(event.shiftKey) {
-                        placeCornerMarkInSelectedCells(number);
-                    } else {
-                        switch(currentMode) {
-                            case modes.COLOR:
-                                updateSelectedCellsForColor(number - 1);
-                                break;
-                            case modes.DIGIT:
-                                placeDigitInSelectedSells(number);
-                                break;
-                            case modes.CORNER:
-                                placeCornerMarkInSelectedCells(number);
-                                break;
-                            case modes.MIDDLE:
-                                placeMiddleMarkInSelectedCells(number);
-                                break;
-                        }
-                    }
-                }
-                if(event.key === 'Shift') {
-                    updateControls(modes.CORNER);
-                    keyPressed = false;
+        createButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            clearGrid();
+            updateCurrentMode(modes.CREATE);
+        });
+
+        playButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            var puzzleSetData= [];
+            for(var i = 1; i < cells.length + 1; i++) {
+                const givenDigits = cells[i-1].getElementsByClassName('given-digit');
+                if(givenDigits.length > 0) {
+                    puzzleSetData.push(parseInt(givenDigits[0].textContent));
+                } else {
+                    puzzleSetData.push(0);
                 }
             }
-            switch(event.code) {
-                case 'ArrowDown':
-                    event.preventDefault();
-                    moveCellSelection(direction.DOWN)
-                    break;
-                case 'ArrowLeft':
-                    event.preventDefault();
-                    moveCellSelection(direction.LEFT)
-                    break;
-                case 'ArrowRight':
-                    event.preventDefault();
-                    moveCellSelection(direction.RIGHT)
-                    break;
-                case 'ArrowUp':
-                    event.preventDefault();
-                    moveCellSelection(direction.UP)
-                    break;
-                case 'PageDown':
-                    event.preventDefault();
-                    changeMode(direction.DOWN);
-                    break;
-                case 'PageUp':
-                    event.preventDefault();
-                    changeMode(direction.UP);
-                    break;
-            }
+            verifyPuzzle(puzzleSetData.join(''));
+        });
+
+        cancelButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            checkLocalStorage();
+            exitCreateMode();
         });
     }
 
-    document.addEventListener('keyup', function(event) {
-        if(keyPressed === true) {
-            keyPressed = false;
+    function exitCreateMode() {
+        playButton.style.display = 'none';
+        createButton.style.display = 'block';
+        cancelButton.style.display = 'none';
+        digitControl.style.pointerEvents = 'auto';
+        digitControl.style.opacity = '1';
+        cornerControl.style.pointerEvents = 'auto';
+        cornerControl.style.opacity = '1';
+        middleControl.style.pointerEvents = 'auto';
+        middleControl.style.opacity = '1';
+        colorControl.style.pointerEvents = 'auto';
+        colorControl.style.opacity = '1';
+        if(!activeGame) {
+            clearGrid();
         }
-        if(event.key === 'Shift') {
-            updateControls(currentMode);
+        updateCurrentMode(modes.DIGIT);
+    }
+
+    async function verifyPuzzle(puzzleSetData) {
+        try {
+            const csrftoken = getCookie('csrftoken');
+            const response = await fetch('/play/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify(puzzleSetData),
+                signal: AbortSignal.timeout(3000)
+            });
+            if(!response.ok) {
+                throw new Error('Response status: ${response.status}');
+            }
+            const verified = await response.text();
+            if(verified === 'true') {
+                gameState = puzzleSetData.split('');
+                localStorage.setItem('puzzleData', gameState);
+                activeGame = true;
+                exitCreateMode();
+            } else {
+                displayErrorMessage(errors.INVALID_PUZZLE);
+            }
+        } catch (e) {
+            displayErrorMessage(errors.SERVER_ERROR);
+            console.error(e);
         }
-    });
+    }
+
+    function setupBoxes() {
+        const boxesSetup = [];
+        for(let blockRow = 0; blockRow < 3; blockRow++) {
+            for(let blockCol = 0; blockCol < 3; blockCol++) {
+                const box = [];
+                for(var i = blockRow * 3; i < (blockRow + 1) * 3; i++) {
+                    for(var j = blockCol * 3; j < (blockCol + 1) * 3; j++) {
+                        box.push((i * 9) + j)
+                    }
+                }
+                boxesSetup.push(box);
+            }
+        }
+        return boxesSetup;
+    }
+
+    function displayErrorMessage(message) {
+        errorMessage.style.display = 'block';
+                errorMessage.style.opacity = 1;
+                errorMessage.innerHTML = message;
+                setTimeout(function() {
+                    errorMessage.style.opacity = 0;
+                    setTimeout(function() {
+                        errorMessage.style.display = 'none'
+                    }, 200);
+                }, 3200);
+    }
+
+    function displayHappyMessage(message) {
+        happyMessage.style.display = 'block';
+                happyMessage.style.opacity = 1;
+                happyMessage.innerHTML = message;
+                setTimeout(function() {
+                    happyMessage.style.opacity = 0;
+                    setTimeout(function() {
+                        happyMessage.style.display = 'none'
+                    }, 200);
+                }, 3200);
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function clearGrid() {
+        for(const cell of cells) {
+            if(cell.getElementsByClassName('given-digit').length > 0) {
+                cell.getElementsByClassName('given-digit')[0].remove();
+            }
+            if(cell.getElementsByClassName('placed-digit').length > 0) {
+                clearCellDigit(cell);
+            }
+            if(cell.getElementsByClassName('middle-marks').length > 0) {
+                clearCellMiddleMarks(cell);
+            }
+            if(cell.getElementsByClassName('corner-mark').length > 0) {
+                clearCellCornerMarks(cell);
+            }
+            if(cell.getElementsByClassName('color-segment').length > 0) {
+                clearCellColors(cell);
+            }
+        }
+    }
+
+    function targetIsControlOrBackground(target) {
+        return target === digitControl ||
+               target === cornerControl ||
+               target === middleControl ||
+               target === colorControl ||
+               target === gameControls ||
+               target === gridBackground;
+    }
 
     function changeMode(rotateDirection) {
         switch(rotateDirection) {
@@ -278,25 +502,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function updateSelectedCellsForColor(color) {
+    function updateSelectedCellsForColor(color, addToHistory) {
         const selectedCells = getSelectedCells();
         var colorMatchCount = 0;
         var cellsWithoutThisColor = [];
+        var selectedCellCount = selectedCells.length;
         for(const colorCheckCell of selectedCells) {
-            const cellColors = colorCheckCell.getElementsByClassName('color-segment');
-            if(cellColors.length === 0) {
-                cellsWithoutThisColor.push(colorCheckCell);
-            } else {
-                for(const cellColor of cellColors) {
-                    if(cellColor.getAttribute('fill') === colors[color]) {
-                        colorMatchCount++;
-                    } else {
+            if(colorCheckCell.getElementsByClassName('given-digit').length === 0) {
+                const cellColors = colorCheckCell.getElementsByClassName('color-segment');
+                if(cellColors.length === 0) {
+                    cellsWithoutThisColor.push(colorCheckCell);
+                } else {
+                    var colorNotFound = false;
+                    for(const cellColor of cellColors) {
+                        if(cellColor.getAttribute('fill') === colors[color]) {
+                            colorMatchCount++;
+                        } else {
+                        colorNotFound = true;
+                        }
+                    }
+                    if(colorNotFound) {
                         cellsWithoutThisColor.push(colorCheckCell);
                     }
                 }
+            } else {
+                selectedCellCount--;
             }
         }
-        if(colorMatchCount === selectedCells.length) {
+        if(colorMatchCount === selectedCellCount) {
             for(const cell of selectedCells) {
                 removeCellColor(cell, colors[color]);
             }
@@ -305,19 +538,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 addColorToCell(cell, color);
             }
         }
+        if(addToHistory) {
+            updateHistory(historyActions.PLACE_COLOR, getSelectedCellsConfigurations(color));
+        }
     }
 
-    function removeCellColor(cell, colorHEX) {
+    function removeCellColor(cell, color) {
         const cellColors = cell.getElementsByClassName('color-segment');
         var existingCellColors = [];
         for(const colorSegment of cellColors) {
             existingCellColors.push(colorSegment.getAttribute('fill'));
         }
         clearCellColors(cell);
-        const indexOfColorToRemove = existingCellColors.indexOf(colorHEX);
-        existingCellColors.splice(indexOfColorToRemove, 1);
-        for(var i = 0; i < existingCellColors.length; i++) {
-            addColorToCell(cell, colors.indexOf(existingCellColors[i]));
+        for(const colorIndex in colors) {
+            if(colors[colorIndex] != color && existingCellColors.includes(colors[colorIndex])) {
+                addColorToCell(cell, colorIndex);
+            }   
         }
     }
 
@@ -327,6 +563,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const cellBackground = cell.getElementsByClassName('cell-background')[0];
         const cellBackgroundXpos = parseFloat(cellBackground.getAttribute('x'));
         const cellBackgroundYpos = parseFloat(cellBackground.getAttribute('y'));
+        var dValue;
+        var fillValue;
+
         switch (existingNumberOfColors) {
             case 0:
                 const oneColorRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -336,60 +575,258 @@ document.addEventListener('DOMContentLoaded', function() {
                 oneColorRect.setAttribute('width', '78');
                 oneColorRect.setAttribute('height', '78');
                 oneColorRect.setAttribute('fill', colors[color]);
-                oneColorRect.setAttribute('opacity', '0.25');
+                oneColorRect.setAttribute('opacity', 0.65);
                 cellBackground.after(oneColorRect);
                 break;
             case 1:
-                const firstColorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                firstColorSegment.setAttribute('class', 'color-segment');
-                firstColorSegment.setAttribute('fill', cellColors[0].getAttribute('fill'));
-                firstColorSegment.setAttribute('d', 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z');
-                firstColorSegment.setAttribute('opacity', 0.65);
-                const secondColorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                secondColorSegment.setAttribute('class', 'color-segment');
-                secondColorSegment.setAttribute('fill', colors[color]);
-                secondColorSegment.setAttribute('d', 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z');
-                secondColorSegment.setAttribute('opacity', 0.65);
+                dValue = 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[0].getAttribute('fill');
+                const segment1 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+.5)+' V'+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = colors[color];
+                const segment2 = newColorSegment(dValue, fillValue);
                 clearCellColors(cell);
-                cellBackground.after(firstColorSegment);
-                cellBackground.after(secondColorSegment);
+                cellBackground.after(segment1);
+                cellBackground.after(segment2);
+                break;
+            case 2:
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+17)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[0].getAttribute('fill');
+                const segment3 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+17)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+17)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[1].getAttribute('fill');
+                const segment4 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+17)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = colors[color];
+                const segment5 = newColorSegment(dValue, fillValue);
+                clearCellColors(cell);
+                cellBackground.after(segment3);
+                cellBackground.after(segment4);
+                cellBackground.after(segment5);
+                break;
+            case 3:
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+39.5)+' V'+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[0].getAttribute('fill');
+                const segment6 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+39.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[1].getAttribute('fill');
+                const segment7 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+39.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[2].getAttribute('fill');
+                const segment8 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+39.5)+' V'+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = colors[color];
+                const segment9 = newColorSegment(dValue, fillValue);
+                clearCellColors(cell);
+                cellBackground.after(segment6);
+                cellBackground.after(segment7);
+                cellBackground.after(segment8);
+                cellBackground.after(segment9);
+                break;
+            case 4:
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+62)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[0].getAttribute('fill');
+                const segment10 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+68.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+63)+' '+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[1].getAttribute('fill');
+                const segment11 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+68.5)+' V'+(cellBackgroundYpos+11)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[2].getAttribute('fill');
+                const segment12 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+11)+' V'+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+62)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[3].getAttribute('fill');
+                const segment13 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+39.5)+' L'+(cellBackgroundXpos+62)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = colors[color];
+                const segment14 = newColorSegment(dValue, fillValue);
+                clearCellColors(cell);
+                cellBackground.after(segment10);
+                cellBackground.after(segment11);
+                cellBackground.after(segment12);
+                cellBackground.after(segment13);
+                cellBackground.after(segment14);
+                break;
+            case 5:
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+62)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[0].getAttribute('fill');
+                const segment15 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+17)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+62)+' '+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[1].getAttribute('fill');
+                const segment16 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+17)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[2].getAttribute('fill');
+                const segment17 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+17)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[3].getAttribute('fill');
+                const segment18 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+17)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+62)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[4].getAttribute('fill');
+                const segment19 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+62)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = colors[color];
+                const segment20 = newColorSegment(dValue, fillValue);
+                clearCellColors(cell);
+                cellBackground.after(segment15);
+                cellBackground.after(segment16);
+                cellBackground.after(segment17);
+                cellBackground.after(segment18);
+                cellBackground.after(segment19);
+                cellBackground.after(segment20);
+                break;
+            case 6:
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+70.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[0].getAttribute('fill');
+                const segment21 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+70.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+30.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+70.5)+' '+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[1].getAttribute('fill');
+                const segment22 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+30.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+58.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+30.5)+' '+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[2].getAttribute('fill');
+                const segment23 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+58.5)+' V'+(cellBackgroundYpos+20.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[3].getAttribute('fill');
+                const segment24 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+20.5)+' V'+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+30.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[4].getAttribute('fill');
+                const segment25 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+70.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[5].getAttribute('fill');
+                const segment26 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+30.5)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+70.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = colors[color];
+                const segment27 = newColorSegment(dValue, fillValue);
+                clearCellColors(cell);
+                cellBackground.after(segment21);
+                cellBackground.after(segment22);
+                cellBackground.after(segment23);
+                cellBackground.after(segment24);
+                cellBackground.after(segment25);
+                cellBackground.after(segment26);
+                cellBackground.after(segment27);
+                break;
+            case 7:
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+78.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[0].getAttribute('fill');
+                const segment28 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+39.5)+' V'+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[1].getAttribute('fill');
+                const segment29 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+0.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' V'+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[2].getAttribute('fill');
+                const segment30 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+78.5)+' V'+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+39.5)+' L'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[3].getAttribute('fill');
+                const segment31 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+0.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[4].getAttribute('fill');
+                const segment32 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+39.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[5].getAttribute('fill');
+                const segment33 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' V'+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+78.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[6].getAttribute('fill');
+                const segment34 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+39.5)+' L'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+0.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = colors[color];
+                const segment35 = newColorSegment(dValue, fillValue);
+                clearCellColors(cell);
+                cellBackground.after(segment28);
+                cellBackground.after(segment29);
+                cellBackground.after(segment30);
+                cellBackground.after(segment31);
+                cellBackground.after(segment32);
+                cellBackground.after(segment33);
+                cellBackground.after(segment34);
+                cellBackground.after(segment35);
+                break;
+            case 8:
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+72.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+72.5)+' Z';
+                fillValue = cellColors[0].getAttribute('fill');
+                const segment36 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+72.5)+' V'+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+46.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+72.5)+' Z';
+                fillValue = cellColors[1].getAttribute('fill');
+                const segment37 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+46.5)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+17)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+46.5)+' '+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[2].getAttribute('fill');
+                const segment38 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+17)+' '+(cellBackgroundYpos+78.5)+' H'+(cellBackgroundXpos+0.5)+' V'+(cellBackgroundYpos+53.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+17)+' '+(cellBackgroundYpos+78.5)+' Z';
+                fillValue = cellColors[3].getAttribute('fill');
+                const segment39 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+53.5)+' V'+(cellBackgroundYpos+25.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[4].getAttribute('fill');
+                const segment40 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+0.5)+' '+(cellBackgroundYpos+25.5)+' V'+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+17)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[5].getAttribute('fill');
+                const segment41 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+17)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+46.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = cellColors[6].getAttribute('fill');
+                const segment42 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+6.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+46.5)+' '+(cellBackgroundYpos+0.5)+' H'+(cellBackgroundXpos+78.5)+' V'+(cellBackgroundYpos+6.5)+' Z';
+                fillValue = cellColors[7].getAttribute('fill');
+                const segment43 = newColorSegment(dValue, fillValue);
+                dValue = 'M'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+39.5)+' '+(cellBackgroundYpos+39.5)+' L'+(cellBackgroundXpos+78.5)+' '+(cellBackgroundYpos+6.5)+' V'+(cellBackgroundYpos+39.5)+' Z';
+                fillValue = colors[color];
+                const segment44 = newColorSegment(dValue, fillValue);
+                clearCellColors(cell);
+                cellBackground.after(segment36);
+                cellBackground.after(segment37);
+                cellBackground.after(segment38);
+                cellBackground.after(segment39);
+                cellBackground.after(segment40);
+                cellBackground.after(segment41);
+                cellBackground.after(segment42);
+                cellBackground.after(segment43);
+                cellBackground.after(segment44);
                 break;
         }
     }
 
+    function newColorSegment(dValue, fillValue) {
+        const colorSegment = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        colorSegment.setAttribute('class', 'color-segment');
+        colorSegment.setAttribute('fill', fillValue);
+        colorSegment.setAttribute('d', dValue);
+        colorSegment.setAttribute('opacity', 0.65);
+        return colorSegment;
+    }
+
     function updateCurrentMode(mode) {
-        previousMode = currentMode;
         if(currentMode != mode) {
+            previousMode = currentMode;
             currentMode = mode;
         }
         updateControls(currentMode);
     }
 
     function updateControls(mode) {
+        for(const control of gameControls.children) {
+            control.classList.remove('selected');
+        }
         switch(mode) {
             case modes.DIGIT:
                 digitControl.classList.add('selected');
-                cornerControl.classList.remove('selected');
-                middleControl.classList.remove('selected');
-                colorControl.classList.remove('selected');
                 break;
             case modes.CORNER:
-                digitControl.classList.remove('selected');
                 cornerControl.classList.add('selected');
-                middleControl.classList.remove('selected');
-                colorControl.classList.remove('selected');
                 break;
             case modes.MIDDLE:
-                digitControl.classList.remove('selected');
-                cornerControl.classList.remove('selected');
                 middleControl.classList.add('selected');
-                colorControl.classList.remove('selected');
                 break;
             case modes.COLOR:
-                digitControl.classList.remove('selected');
-                cornerControl.classList.remove('selected');
-                middleControl.classList.remove('selected');
                 colorControl.classList.add('selected');
+                break;
+            case modes.CREATE:
+                playButton.style.display = 'block';
+                cancelButton.style.display = 'block';
+                createButton.style.display = 'none';
+                digitControl.style.pointerEvents = 'none';
+                cornerControl.style.pointerEvents = 'none';
+                middleControl.style.pointerEvents = 'none';
+                colorControl.style.pointerEvents = 'none';
+                digitControl.style.opacity = '0.25';
+                cornerControl.style.opacity = '0.25'
+                middleControl.style.opacity = '0.25';
+                colorControl.style.opacity = '0.25'
                 break;
         }
     }
@@ -408,21 +845,262 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function placeDigitInSelectedSells(digit) {
+    function placeDigitInSelectedSells(digit, addToHistory) {
+        if(addToHistory) {
+            updateHistory(historyActions.PLACE_DIGIT, getSelectedCellsConfigurations(digit));
+        }
         const selectedCells = getSelectedCells();
         for(const cell of selectedCells) {
+            const cellGivenDigits = cell.getElementsByClassName('given-digit')
             const cellBackground = cell.getElementsByClassName('cell-background')[0];
-            prepareCellForDigit(cell);
-            const newCellDigit = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            newCellDigit.setAttribute('class', 'placed-digit');
-            newCellDigit.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + 26);
-            newCellDigit.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + 55.5);
-            newCellDigit.textContent = String(digit);
-            cell.appendChild(newCellDigit);
+            const cellDigits = cell.getElementsByClassName('placed-digit');
+            const cellID = parseInt(cell.id.split('-')[1]);
+            var cellDigitFoundAndRemoved = false;
+            for(const cellDigit of cellDigits) {
+                if(cellDigit.textContent === String(digit)) {
+                    cellDigit.remove();
+                    if(activeGame) {
+                        gameState[cellID] = '0';
+                        validateGrid();
+                    }
+                    cellDigitFoundAndRemoved = true;
+                }
+            }
+            if(!cellDigitFoundAndRemoved) {
+                if(cellGivenDigits.length === 0) {
+                    if(cellDigits.length === 0) {
+                        const newCellDigit = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        newCellDigit.setAttribute('class', 'placed-digit');
+                        newCellDigit.setAttribute('x', parseFloat(cellBackground.getAttribute('x')) + 26);
+                        newCellDigit.setAttribute('y', parseFloat(cellBackground.getAttribute('y')) + 55.5);
+                        newCellDigit.textContent = String(digit);
+                        cell.appendChild(newCellDigit);
+                    } else {
+                        cellDigits[0].textContent = String(digit);
+                    }
+                    if(activeGame) {
+                        gameState[cellID] = String(digit);
+                        validateGrid();
+                    }
+                }
+            }
+            updateCellConfig(cell);
         }
     }
 
-    function placeCornerMarkInSelectedCells(digit) {
+    function stepThroughHistory(direction) {
+        var puzzleHistory = JSON.parse(decryptString(localStorage.getItem('puzzleHistory')));
+        if(puzzleHistory != null) {
+            if(direction === stepDirection.FORWARD) {
+                undoHappened = false;
+                historyIndex++;
+                if(historyIndex > puzzleHistory['actions'].length - 1) {
+                    historyIndex = puzzleHistory['actions'].length;
+                }
+                puzzleHistory['lastHistoryIndex'] = historyIndex;
+                localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+            }
+            if(direction === stepDirection.BACKWARD && historyIndex > puzzleHistory['actions'].length - 1) {
+                historyIndex = puzzleHistory['actions'].length - 1;
+                puzzleHistory['lastHistoryIndex'] = historyIndex;
+                localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+            }
+            if(historyIndex > -1 && historyIndex < puzzleHistory['actions'].length) {
+                var lastAction = puzzleHistory['actions'][historyIndex];
+                var selectedCellStrings = lastAction['cells'];
+                var selectedCells = [];
+                for(const cellString of selectedCellStrings) {
+                    const cellJSON = JSON.parse(cellString);
+                    selectedCells.push(cellJSON);
+                }
+                switch(lastAction['action']) {
+                    case historyActions.PLACE_CORNER_MARK:
+                        for(const cell of selectedCells) {
+                            deselectAll();
+                            selectCell(getCellByID(cell['cellID']));
+                            placeCornerMarkInSelectedCells(cell['newValue'], false);
+                        }
+                        break;
+                    case historyActions.PLACE_MIDDLE_MARK:
+                        for(const cell of selectedCells) {
+                            deselectAll();
+                            selectCell(getCellByID(cell['cellID']));
+                            placeMiddleMarkInSelectedCells(cell['newValue'], false);
+                        }
+                        break;
+                    case historyActions.PLACE_COLOR:
+                        for(const cell of selectedCells) {
+                            deselectAll();
+                            selectCell(getCellByID(cell['cellID']));
+                            updateSelectedCellsForColor(cell['newValue'], false);
+                        }
+                        break;
+                    case historyActions.PLACE_DIGIT:
+                        for(const cell of selectedCells) {
+                            deselectAll();
+                            selectCell(getCellByID(cell['cellID']));
+                            if(cell['placedDigits'].length > 0) {
+                                placeDigitInSelectedSells(cell['placedDigits'])
+                            } else {
+                                placeDigitInSelectedSells(cell['newValue'], false);
+                            }
+                        }
+                        break;
+                    case historyActions.CLEAR_CELLS:
+                        for(const cell of selectedCells) {
+                            deselectAll();
+                            selectCell(getCellByID(cell['cellID']));
+                            if(cell['cornerMarks'].length > 0) {
+                                const cellCornerMarks = cell['cornerMarks'].split('');
+                                for(const cornerMark of cellCornerMarks) {
+                                    placeCornerMarkInSelectedCells(cornerMark, false);
+                                }
+                            }
+                            if(cell['middleMarks'].length > 0) {
+                                const cellMiddleMarks = cell['middleMarks'].split('');
+                                for(const middleMark of cellMiddleMarks) {
+                                    placeMiddleMarkInSelectedCells(middleMark, false);
+                                }
+                            }
+                            if(cell['colors'].length > 0) {
+                                const cellColors = cell['colors'].split('');
+                                for(const color of cellColors) {
+                                    updateSelectedCellsForColor(color, false);
+                                }
+                            }
+                            if(cell['placedDigits'].length > 0) {
+                                const placedDigits = cell['placedDigits'].split('');
+                                for(const placedDigit of placedDigits) {
+                                    placeDigitInSelectedSells(placedDigit, false);
+                                }
+                            }
+                        }
+                        break;
+                }
+                for(const selectedCell of selectedCells) {
+                    selectCell(getCellByID(selectedCell['cellID']));
+                }
+            }
+            if(direction === stepDirection.BACKWARD) {
+                undoHappened = true;
+                historyIndex--;
+                if(historyIndex < 0) {
+                    historyIndex = -1;
+                    deselectAll();
+                }
+                puzzleHistory['lastHistoryIndex'] = historyIndex;
+                localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+            }
+        }
+    }
+
+    function updateHistory(action, cellConfigurations) {
+        var puzzleHistory = JSON.parse(decryptString(localStorage.getItem('puzzleHistory')));
+        if(Object.keys(puzzleHistory).length === 0) {
+            historyIndex = -1;
+            puzzleHistory = {
+                actions: [],
+                lastHistoryIndex: historyIndex
+            };
+            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+        }
+        if(undoHappened) {
+            puzzleHistory['actions'].splice(historyIndex + 1);
+            historyIndex = puzzleHistory['actions'].length - 1;
+            puzzleHistory['lastHistoryIndex'] = historyIndex;
+            undoHappened = false;
+        }
+        var lastAction = {
+            action: action,
+            cells: cellConfigurations
+        }
+        puzzleHistory['actions'].push(lastAction);
+        historyIndex = puzzleHistory['actions'].length - 1;
+        puzzleHistory['lastHistoryIndex'] = historyIndex;
+        localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+    }
+
+    function validateGrid() {
+        var gridIsValid = true;
+        for(const cell of cells) {
+            const cellBackground = cell.getElementsByClassName('cell-background')[0]
+            cellBackground.classList.remove('conflict');
+        }
+        // validate box
+        for(const box of boxes) {
+            var digitsInBox = new Set();
+            for(var i = 0; i < box.length; i++) {
+                if(gameState[box[i]] != '0') {
+                    digitsInBox.add(gameState[box[i]]);
+                }
+            }
+            for(const digit of digitsInBox) {
+                var matchingCellsInBox = [];
+                for(var i = 0; i < box.length; i++) {
+                    if(gameState[box[i]] === digit) {
+                        matchingCellsInBox.push(box[i]);
+                    }
+                }
+                if(matchingCellsInBox.length > 1) {
+                    for(var i = 0; i < matchingCellsInBox.length; i++) {
+                        const cellBackground = getCellByID('cell-'+matchingCellsInBox[i]).getElementsByClassName('cell-background')[0];
+                        cellBackground.classList.add('conflict');
+                        gridIsValid = false;
+                    }
+                }
+            }
+        }
+        for(var i = 0; i < gameState.length; i++) {
+            if(gameState[i] !== '0') {
+                const digit = gameState[i];
+                const row = (Math.ceil((i + 1) / 9)) - 1;
+                const column = (i - (row * 9)) + 9;
+                // validate row
+                matchingDigitsInRow = [];
+                for(var j = (i - column + 9); j <= (i + (8 - column) + 9); j++) {
+                    if(gameState[j] === digit) {
+                        matchingDigitsInRow.push(j);
+                    }
+                }
+                if(matchingDigitsInRow.length > 1) {
+                    for(var j = 0; j < matchingDigitsInRow.length; j++) {
+                        const cellBackground = getCellByID('cell-'+matchingDigitsInRow[j]).getElementsByClassName('cell-background')[0];
+                        cellBackground.classList.add('conflict');
+                        gridIsValid = false;
+                    }
+                }
+                // validate column
+                matchingDigitsInColumn = [];
+                for(var j = (i - row * 9); j <= (71+column); j+=9) {
+                    if(gameState[j] === digit) {
+                        matchingDigitsInColumn.push(j);
+                    }
+                }
+                if(matchingDigitsInColumn.length > 1) {
+                    for(var j = 0; j < matchingDigitsInColumn.length; j++) {
+                        const cellBackground = getCellByID('cell-'+matchingDigitsInColumn[j]).getElementsByClassName('cell-background')[0];
+                        cellBackground.classList.add('conflict');
+                        gridIsValid = false;
+                    }
+                }
+            }
+        }
+        var gridIsComplete = true;
+        for(var i = 0; i < gameState.length; i++) {
+            if(parseInt(gameState[i]) === 0) {
+                gridIsComplete = false;
+            }
+        }
+        if(gridIsValid && gridIsComplete) {
+            gameOver();
+        }
+    }
+
+    function gameOver() {
+        displayHappyMessage('Great job. You solved the puzzle!');
+    }
+
+    function placeCornerMarkInSelectedCells(digit, addToHistory) {
         const selectedCells = getSelectedCells();
         for(const cell of selectedCells) {
             const cellPlacedDigits = cell.getElementsByClassName('placed-digit');
@@ -525,9 +1203,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
+        if(addToHistory) {
+            updateHistory(historyActions.PLACE_CORNER_MARK, getSelectedCellsConfigurations(digit));
+        }
     }
 
-    function placeMiddleMarkInSelectedCells(digit) {
+    function placeMiddleMarkInSelectedCells(digit, addToHistory) {
         const selectedCells = getSelectedCells();
         for(const cell of selectedCells) {
             const cellPlacedDigits = cell.getElementsByClassName('placed-digit');
@@ -559,14 +1240,39 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                     if(!middleMarkFoundAndRemoved) {
+                        const middleMarks = cellMiddleMarks[0].getElementsByTagName('tspan');
+                        const middleMarksSortedArray = Array.from(middleMarks).sort(function(a, b) {
+                            if(parseInt(a.textContent) < parseInt(b.textContent)) return -1;
+                            if(parseInt(a.textContent) > parseInt(b.textContent)) return 1;
+                            return 0;
+                        });
                         const middleMarkDigit = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
                         middleMarkDigit.textContent = String(digit);
-                        cellMiddleMarks[0].appendChild(middleMarkDigit);
+                        if(middleMarksSortedArray.length > 0) {
+                            for(var i = 0; i < middleMarksSortedArray.length; i++) {
+                                if(digit < parseInt(middleMarksSortedArray[i].textContent)) {
+                                    for(const middleMark of middleMarks) {
+                                        if(middleMark === middleMarksSortedArray[i]) {
+                                            middleMark.before(middleMarkDigit);
+                                        }
+                                    }
+                                    break;
+                                } else {
+                                    cellMiddleMarks[0].appendChild(middleMarkDigit);
+                                }
+                            }
+                        } else {
+                            cellMiddleMarks[0].appendChild(middleMarkDigit);
+                        }
                         cellMiddleMarks[0].setAttribute('data-count', parseInt(cellMiddleMarks[0].getAttribute('data-count')) + 1);
                     }
                 }
+                
             }
-        }       
+        }
+        if(addToHistory) {
+            updateHistory(historyActions.PLACE_MIDDLE_MARK, getSelectedCellsConfigurations(digit));
+        }
     }
 
     function shiftCornerMark(cell, fromPosition, toPosition) {
@@ -712,20 +1418,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function clearCellDigit(cell) {
-        const cellDigit = cell.getElementsByClassName('placed-digit');
-        if(cellDigit.length > 0) {
-            cellDigit[0].remove();
-            toggleCellConfigVisibility(cell, 'visible');
+        const cellDigits = cell.getElementsByClassName('placed-digit');
+        const cellID = parseInt(cell.id.split('-')[1]);
+        while(cellDigits.length > 0) {
+            cellDigits[0].remove();
+            if(activeGame) {
+                gameState[cellID] = '0';
+                validateGrid();
+            }
         }
+        updateCellConfig(cell);
     }
 
-    function prepareCellForDigit(cell) {
+    function updateCellConfig(cell) {
         const cellDigit = cell.getElementsByClassName('placed-digit');
         if(cellDigit.length > 0) {
-            cellDigit[0].remove();
-            toggleCellConfigVisibility(cell, 'visible');
-        } else {
             toggleCellConfigVisibility(cell, 'hidden');
+        } else {
+            toggleCellConfigVisibility(cell, 'visible');
         }
     }
 
@@ -757,9 +1467,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function clearSelectedCells() {
+    function clearSelectedCells(addToHistory) {
         const selectedCells = getSelectedCells();
+        if(addToHistory) {
+            updateHistory(historyActions.CLEAR_CELLS, getSelectedCellsConfigurations());
+        }
         for(const cell of selectedCells) {
+            if(currentMode === modes.CREATE && cell.getElementsByClassName('given-digit').length > 0) {
+                cell.getElementsByClassName('given-digit')[0].remove();
+            }
             if(cell.getElementsByClassName('placed-digit').length > 0) {
                 clearCellDigit(cell);
             } else if(cell.getElementsByClassName('middle-marks').length > 0) {
@@ -772,8 +1488,54 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function getSelectedCellsConfigurations(newValue) {
+        const selectedCells = getSelectedCells();
+        const cellConfigurations = [];
+        for(const cell of selectedCells) {
+            if(cell.getElementsByClassName('given-digit').length === 0) {
+                const cellPlacedDigits = cell.getElementsByClassName('placed-digit');
+                const cellCornerMarks = cell.getElementsByClassName('corner-mark');
+                const cellMiddleMarks = cell.getElementsByTagName('tspan');
+                const cellColors = cell.getElementsByClassName('color-segment');
+                const cellConfiguration = {
+                    cellID: cell.id,
+                    placedDigits: '',
+                    cornerMarks: '',
+                    middleMarks: '',
+                    colors: '',
+                    newValue: String(newValue)
+                }
+                if(cellPlacedDigits.length > 0) {
+                    for(const placedDigit of cellPlacedDigits) {
+                        cellConfiguration.placedDigits += placedDigit.textContent;
+                    }
+                }
+                if(cellMiddleMarks.length > 0) {
+                    for(const middleMark of cellMiddleMarks) {
+                        cellConfiguration.middleMarks += middleMark.textContent;
+                    }
+                }
+                if(cellCornerMarks.length > 0) {
+                    for(const cornerMark of cellCornerMarks) {
+                        cellConfiguration.cornerMarks += cornerMark.textContent;
+                    }
+                }
+                if(cellColors.length > 0) {
+                    for(const colorSegment of cellColors) {
+                        cellConfiguration.colors += Object.keys(colors).find(key => colors[key] === colorSegment.getAttribute('fill'));
+                    }
+                }
+                cellConfigurations.push(JSON.stringify(cellConfiguration));
+            }
+        }
+        return cellConfigurations;
+    }
+
     function clearCellMiddleMarks(cell) {
-        cell.getElementsByClassName('middle-marks')[0].remove();
+        const cellMiddleMarks = cell.getElementsByClassName('middle-marks');
+        if(cellMiddleMarks.length > 0) {
+            cellMiddleMarks[0].remove();
+        }
     }
 
     function getSelectedCells() {
@@ -785,9 +1547,11 @@ document.addEventListener('DOMContentLoaded', function() {
         return selectedCells;
     }
 
-    function deselectAll() {
+    function deselectAll(skipCell) {
         for(const cell of cells) {
-            deselectCell(cell);
+            if(cell != skipCell) {
+                deselectCell(cell);
+            }
         }
     }
 
@@ -795,7 +1559,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if(isSelected(cell)) {
             cell.getElementsByClassName('selected-cell')[0].remove();
             setCellColorsOpacity(cell, 1);
-            lastCellSelection = null;
         }
     }
 
@@ -819,35 +1582,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function moveCellSelection(moveDirection) {
-        const oldCellNumber = parseInt(lastCellSelection.getAttribute('id').split('cell-')[1]);
-        const oldCellRow = Math.ceil((oldCellNumber + 1) / 9);
-        const oldCellColumn = (oldCellNumber - (oldCellRow * 9)) + 10;
-        switch(moveDirection) {
-            case direction.UP:
-                if(oldCellRow > 1) {
-                    deselectAll();
-                    selectCell(getCellByID('cell-' + (oldCellNumber - 9)));
-                }
-                break;
-            case direction.DOWN:
-                if(oldCellRow < 9) {
-                    deselectAll();
-                    selectCell(getCellByID('cell-' + (oldCellNumber + 9)));
-                }
-                break;
-            case direction.LEFT:
-                if(oldCellColumn > 1) {
-                    deselectAll();
-                    selectCell(getCellByID('cell-' + (oldCellNumber - 1)));
-                }
-                break;
-            case direction.RIGHT:
-                if(oldCellColumn < 9) {
-                    deselectAll();
-                    selectCell(getCellByID('cell-' + (oldCellNumber + 1)));
-                }
-                break;
+    function moveCellSelection(moveDirection, shiftPressed) {
+        if(lastCellSelection != null) {
+            const oldCellNumber = parseInt(lastCellSelection.getAttribute('id').split('cell-')[1]);
+            const oldCellRow = Math.ceil((oldCellNumber + 1) / 9);
+            const oldCellColumn = (oldCellNumber - (oldCellRow * 9)) + 10;
+            if(!shiftPressed || currentMode === modes.CREATE) {
+                deselectAll();
+            }
+            switch(moveDirection) {
+                case direction.UP:
+                    if(oldCellRow > 1) {
+                        selectCell(getCellByID('cell-' + (oldCellNumber - 9)));
+                    } else {
+                        selectCell(getCellByID('cell-' + (oldCellNumber + 72)));
+                    }
+                    break;
+                case direction.DOWN:
+                    if(oldCellRow < 9) {
+                        selectCell(getCellByID('cell-' + (oldCellNumber + 9)));
+                    } else {
+                        selectCell(getCellByID('cell-' + (oldCellNumber - 72)));
+                    }
+                    break;
+                case direction.LEFT:     
+                    if(oldCellColumn > 1) {
+                        selectCell(getCellByID('cell-' + (oldCellNumber - 1)));
+                    } else {
+                        selectCell(getCellByID('cell-' + (oldCellNumber + 8)));
+                    }
+                    break;
+                case direction.RIGHT:
+                    if(oldCellColumn < 9) {
+                        selectCell(getCellByID('cell-' + (oldCellNumber + 1)));
+                    } else {
+                        selectCell(getCellByID('cell-' + (oldCellNumber - 8)));
+                    }
+                    break;
+            }
         }
     }
 
@@ -860,13 +1632,13 @@ document.addEventListener('DOMContentLoaded', function() {
         return null;
     }
 
-    function checkPointerCellIntersection(pointer, cell) {
+    function checkPointerIntersection(pointer, element) {
         const pointerX = pointer.x;
         const pointerY = pointer.y;
-        const cellLeft = cell.getBoundingClientRect().x;
-        const cellRight = cellLeft + cell.getBoundingClientRect().width;
-        const cellTop = cell.getBoundingClientRect().y;
-        const cellBottom = cellTop + cell.getBoundingClientRect().height;
+        const cellLeft = element.getBoundingClientRect().x;
+        const cellRight = cellLeft + element.getBoundingClientRect().width;
+        const cellTop = element.getBoundingClientRect().y;
+        const cellBottom = cellTop + element.getBoundingClientRect().height;
         return (pointerX >= cellLeft && pointerX <= cellRight && pointerY >= cellTop && pointerY <= cellBottom);
     }
 
@@ -887,83 +1659,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     setupGame();
 
-    // function encryptString(text) {
-    //     return btoa(text);
-    // }
+    function encryptString(text) {
+        if(text != null) return btoa(text);
+        return '{}';
+    }
 
-    // function decryptString(encryptedText) {
-    // return atob(encryptedText);
-    // }
-
-    // // Example
-    // const originalString = "This is a secret message.";
-    // const encryptedString = encryptString(originalString);
-    // console.log("Encrypted:", encryptedString);
-    // const decryptedString = decryptString(encryptedString);
-    // console.log("Decrypted:", decryptedString);
+    function decryptString(encryptedText) {
+        if(encryptedText != null) return atob(encryptedText);
+        return '{}';
+    }
 });
 </script>
 <div id="game">
+    <div id="header">
+        <a href="/">
+            <img src="{% static 'img/site-logo.svg' %}" id="site-logo">
+        </a>
+    </div>
     <svg width="762" height="762" viewBox="0 0 762 762" fill="none" id="game-grid" xmlns="http://www.w3.org/2000/svg">
-    <rect x="11" y="11" width="740" height="740" fill="#285C77"/>
+    <rect x="11" y="11" width="740" height="740" fill="#285C77" id="grid-background"/>
     <g class="cell" id="cell-0">
         <rect x="11.5" y="11.5" width="79" height="79" class="cell-background" stroke="#6D6D6D"/>
-        <g id="six-colors" opacity="1">
-            <path d="M0 90 H73.5 L51 51 H90 V90 Z" fill="#BFBFBF"/>
-            <path d="M0 90 H28.5 L51 51 L73.5 90 Z" fill="#6E6E6E"/>
-            <path d="M51 51 L28.5 90 H12 V51 L51 51 Z" fill="#FA791E"/>
-            <path d="M0 51 H12 V12 H28.5 L51 51 Z" fill="#1F9459"/>
-            <path d="M51 51 L28.5 12 H73.5 L51 51 Z" fill="#F039A7"/>
-            <path d="M90 51 L51 51 L73.5 12 H90 V51 Z" fill="#651BCD"/>
-        </g>
-        <g id="five-colors" opacity="0">
-            <path d="M0 90 H63.5 L51 51 H90 V90 Z" fill="#BFBFBF"/>
-            <path d="M0 90 H12 V70 L51 51 L63.5 90 Z" fill="#6E6E6E"/>
-            <path d="M51 51 L12 70 V22.5 L51 51 Z" fill="#FA791E"/>
-            <path d="M51 51 L12 22.5 V12 H63.5 L51 51 Z" fill="#1F9459"/>
-            <path d="M0 51 H51 L63.5 12 H90 V51 Z" fill="#F039A7"/>
-        </g>
-        <g id="four-colors" opacity="0">
-            <path d="M0 90 H51 V51 H90 V90 Z" fill="#BFBFBF"/>
-            <path d="M0 90 H12 V51 H51 V90 Z" fill="#6E6E6E"/>
-            <path d="M0 51 H12 V12 H51 V51 Z" fill="#FA791E"/>
-            <path d="M0 51 H51 V12 H90 V51 Z" fill="#1F9459"/>
-        </g>
-        <g id="three-colors" opacity="0">
-            <path d="M0 90 H18.5 L51 51 H90 V90 Z" fill="#BFBFBF"/>
-            <path d="M51 51 L18.5 90 H12 V12 H18.5 L51 51 Z" fill="#6E6E6E"/>
-            <path d="M0 51 L51 51 L18.5 12 H90 V51 Z" fill="#FA791E"/>
-        </g>
-        <g id="two-colors" opacity="0">
-            <path d="M0 51 H12 V12 H90 V51 Z" fill="#6E6E6E"/>
-            <path d="M0 90 H12 V51 H90 V90 Z" fill="#BFBFBF"/>
-        </g>
-        <g id="one-color" opacity="0">
-            <rect x="12" y="12" width="78" height="78" fill="#D9D9D9"/>
-        </g>
-        <g id="corner-marks" opacity="1">
-            <text class="corner-mark" id="top-left" x="17.5" y="34.5">1</text>
-            <text class="corner-mark" id="top-middle" x="43.5" y="34.5">2</text>
-            <text class="corner-mark" id="top-right" x="72.5" y="34.5">3</text>
-            <text class="corner-mark" id="middle-left" x="17.5" y="59.5">4</text>
-            <text class="corner-mark" id="middle-middle" x="43.5" y="59.5">5</text>
-            <text class="corner-mark" id="middle-right" x="72.5" y="59.5">6</text>
-            <text class="corner-mark" id="bottom-left" x="17.5" y="83.5">7</text>
-            <text class="corner-mark" id="bottom-middle" x="43.5" y="83.5">8</text>
-            <text class="corner-mark" id="bottom-right" x="72.5" y="83.5">9</text>
-        </g>
-        <text class="middle-marks" x="50" y="53" dominant-baseline="middle" text-anchor="middle" data-count="9">
-            <tspan>1</tspan>
-            <tspan>2</tspan>
-            <tspan>3</tspan>
-            <tspan>4</tspan>
-            <tspan>5</tspan>
-            <tspan>6</tspan>
-            <tspan>7</tspan>
-            <tspan>8</tspan>
-            <tspan>9</tspan>
-        </text>
-        <text x="38" y="67" class="placed-digit">3</text>
     </g>
     <g class="cell" id="cell-1">
         <rect class="cell-background" x="91.5" y="11.5" width="79" height="79"/>
@@ -991,39 +1707,12 @@ document.addEventListener('DOMContentLoaded', function() {
     </g>
     <g class="cell" id="cell-9">
         <rect class="cell-background" x="11.5" y="91.5" width="79" height="79"/>
-        <path d="M90 163.72L51 131H90V163.72Z" fill="#BFBFBF"/>
-        <path d="M90 163.725V170H57.8799L51 131L90 163.725Z" fill="#6E6E6E"/>
-        <path d="M57.877 170H28.4863L51 131L57.877 170Z" fill="#FA791E"/>
-        <path d="M28.4834 170H12V145.198L51 131L28.4834 170Z" fill="#1F9459"/>
-        <path d="M51 131L12 145.194V116.808L51 131Z" fill="#F039A7"/>
-        <path d="M51 131L12 116.805V92H28.4795L51 131Z" fill="#651BCD"/>
-        <path d="M51 131L28.4834 92H57.874L51 131Z" fill="#1BACCD"/>
-        <path d="M90 98.2695L51 131L57.877 92H90V98.2695Z" fill="#FFFF53"/>
-        <path d="M90 130.997L51 131L90 98.2744V130.997Z" fill="#FF5353"/>
-        <rect class="selected-cell" x="13.5" y="93.5" width="75" height="75" visibility="hidden"/>
     </g>
     <g class="cell" id="cell-10">
         <rect class="cell-background" x="91.5" y="91.5" width="79" height="79"/>
-        <path d="M170 170L131 131H170V170Z" fill="#BFBFBF"/>
-        <path d="M170 170H131V131L170 170Z" fill="#6E6E6E"/>
-        <path d="M131 170H92L131 131V170Z" fill="#FA791E"/>
-        <path d="M92 170V131H131L92 170Z" fill="#1F9459"/>
-        <path d="M131 131H92V92L131 131Z" fill="#F039A7"/>
-        <path d="M131 131L92 92H131V131Z" fill="#651BCD"/>
-        <path d="M131 131V92H170L131 131Z" fill="#1BACCD"/>
-        <path d="M170 131H131L170 92V131Z" fill="#FFFF53"/>
     </g>
     <g class="cell" id="cell-11">
         <rect  class="cell-background" x="171.5" y="91.5" width="79" height="79"/>
-        <g id="seven-colors">
-            <path d="M250 170H242.124L211 131H250V170Z" fill="#BFBFBF"/>
-            <path d="M242.111 170H202.119L211 131L242.111 170Z" fill="#6E6E6E"/>
-            <path d="M202.097 170H172V149.796L211 131L202.097 170Z" fill="#FA791E"/>
-            <path d="M211 131L172 149.786V112.241L211 131Z" fill="#1F9459"/>
-            <path d="M211 131L172 112.229V92H202.073L211 131Z" fill="#F039A7"/>
-            <path d="M211 131L202.082 92H242.053L211 131Z" fill="#651BCD"/>
-            <path d="M250 130.964L211 131L242.066 92H250V130.964Z" fill="#1BACCD"/>
-        </g>
     </g>
     <g class="cell" id="cell-12">
         <rect  class="cell-background" x="261.5" y="91.5" width="79" height="79"/>
@@ -1033,6 +1722,15 @@ document.addEventListener('DOMContentLoaded', function() {
     </g>
         <g class="cell" id="cell-14">
         <rect class="cell-background" x="421.5" y="91.5" width="79" height="79"/>
+    </g>
+    <g class="cell" id="cell-15">
+        <rect x="511.5" y="91.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-16">
+        <rect x="591.5" y="91.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-17">
+        <rect x="671.5" y="91.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-18">
         <rect class="cell-background" x="11.5" y="171.5" width="79" height="79"/>
@@ -1052,20 +1750,11 @@ document.addEventListener('DOMContentLoaded', function() {
     <g class="cell" id="cell-23">
         <rect x="421.5" y="171.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-15">
-        <rect x="511.5" y="91.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-24">
         <rect x="511.5" y="171.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-16">
-        <rect x="591.5" y="91.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-25">
         <rect x="591.5" y="171.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-17">
-        <rect x="671.5" y="91.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-26">
         <rect x="671.5" y="171.5" width="79" height="79" class="cell-background"/>
@@ -1073,80 +1762,80 @@ document.addEventListener('DOMContentLoaded', function() {
     <g class="cell" id="cell-27">
         <rect x="11.5" y="261.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-36">
-        <rect x="11.5" y="341.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-45">
-        <rect x="11.5" y="421.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-28">
         <rect x="91.5" y="261.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-37">
-        <rect x="91.5" y="341.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-46">
-        <rect x="91.5" y="421.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-29">
         <rect x="171.5" y="261.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-38">
-        <rect x="171.5" y="341.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-47">
-        <rect x="171.5" y="421.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-30">
         <rect x="261.5" y="261.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-39">
-        <rect x="261.5" y="341.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-48">
-        <rect x="261.5" y="421.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-31">
         <rect x="341.5" y="261.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-40">
-        <rect x="341.5" y="341.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-49">
-        <rect x="341.5" y="421.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-32">
         <rect x="421.5" y="261.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-41">
-        <rect x="421.5" y="341.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-50">
-        <rect x="421.5" y="421.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-33">
         <rect x="511.5" y="261.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-42">
-        <rect x="511.5" y="341.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-51">
-        <rect x="511.5" y="421.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-34">
         <rect x="591.5" y="261.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-43">
-        <rect x="591.5" y="341.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-52">
-        <rect x="591.5" y="421.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-35">
         <rect x="671.5" y="261.5" width="79" height="79" class="cell-background"/>
     </g>
+    <g class="cell" id="cell-36">
+        <rect x="11.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-37">
+        <rect x="91.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-38">
+        <rect x="171.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-39">
+        <rect x="261.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-40">
+        <rect x="341.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-41">
+        <rect x="421.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-42">
+        <rect x="511.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-43">
+        <rect x="591.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
     <g class="cell" id="cell-44">
         <rect x="671.5" y="341.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-45">
+        <rect x="11.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-46">
+        <rect x="91.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-47">
+        <rect x="171.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-48">
+        <rect x="261.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-49">
+        <rect x="341.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-50">
+        <rect x="421.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-51">
+        <rect x="511.5" y="421.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-52">
+        <rect x="591.5" y="421.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-53">
         <rect x="671.5" y="421.5" width="79" height="79" class="cell-background"/>
@@ -1154,91 +1843,96 @@ document.addEventListener('DOMContentLoaded', function() {
     <g class="cell" id="cell-54">
         <rect x="11.5" y="511.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-63">
-        <rect x="11.5" y="591.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-72">
-        <rect x="11.5" y="671.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-55">
         <rect x="91.5" y="511.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-64">
-        <rect x="91.5" y="591.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-73">
-        <rect x="91.5" y="671.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-56">
         <rect x="171.5" y="511.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-65">
-        <rect x="171.5" y="591.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-74">
-        <rect x="171.5" y="671.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-57">
         <rect x="261.5" y="511.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-66">
-        <rect x="261.5" y="591.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-75">
-        <rect x="261.5" y="671.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-58">
         <rect x="341.5" y="511.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-67">
-        <rect x="341.5" y="591.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-76">
-        <rect x="341.5" y="671.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-59">
         <rect x="421.5" y="511.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-68">
-        <rect x="421.5" y="591.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-77">
-        <rect x="421.5" y="671.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-60">
         <rect x="511.5" y="511.5" width="79" height="79" class="cell-background"/>
     </g>
-    <g class="cell" id="cell-69">
-        <rect x="511.5" y="591.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-78">
-        <rect x="511.5" y="671.5" width="79" height="79" class="cell-background"/>
-    </g>
     <g class="cell" id="cell-61">
         <rect x="591.5" y="511.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-70">
-        <rect x="591.5" y="591.5" width="79" height="79" class="cell-background"/>
-    </g>
-    <g class="cell" id="cell-79">
-        <rect x="591.5" y="671.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-62">
         <rect x="671.5" y="511.5" width="79" height="79" class="cell-background"/>
     </g>
+    <g class="cell" id="cell-63">
+        <rect x="11.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-64">
+        <rect x="91.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-65">
+        <rect x="171.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-66">
+        <rect x="261.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-67">
+        <rect x="341.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-68">
+        <rect x="421.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-69">
+        <rect x="511.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-70">
+        <rect x="591.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
     <g class="cell" id="cell-71">
         <rect x="671.5" y="591.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-72">
+        <rect x="11.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-73">
+        <rect x="91.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-74">
+        <rect x="171.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-75">
+        <rect x="261.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-76">
+        <rect x="341.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-77">
+        <rect x="421.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-78">
+        <rect x="511.5" y="671.5" width="79" height="79" class="cell-background"/>
+    </g>
+    <g class="cell" id="cell-79">
+        <rect x="591.5" y="671.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-80">
     <rect x="671.5" y="671.5" width="79" height="79" class="cell-background"/>
     </g>
     <rect x="5.5" y="5.5" width="751" height="751" rx="7.5" stroke="#285C77" stroke-width="11"/>
     </svg>
+    <div id="error-message"></div>
+    <div id="happy-message"></div>
     <div id="game-controls">
-        <a href="#" id="digit-control" class="mode-selector selected" data-mode="digit" style="background: url({% static 'img/digit-control.svg' %}) center no-repeat;"></a>
-        <a href="#" id="corner-control" class="mode-selector" data-mode="corner" style="background: url({% static 'img/corner-control.svg' %}) center no-repeat;"></a>
-        <a href="#" id="middle-control" class="mode-selector" data-mode="middle" style="background: url({% static 'img/middle-control.svg' %}) center no-repeat;"></a>
-        <a href="#" id="color-control" class="mode-selector" data-mode="color" style="background: url({% static 'img/color-control.svg' %}) center no-repeat;"></a>
+        <a href="#" id="digit-control" class="game-control selected" style="background: url({% static 'img/digit-control.svg' %}) center no-repeat;"></a>
+        <a href="#" id="corner-control" class="game-control" style="background: url({% static 'img/corner-control.svg' %}) center bottom no-repeat;"></a>
+        <a href="#" id="middle-control" class="game-control" style="background: url({% static 'img/middle-control.svg' %}) center bottom no-repeat;"></a>
+        <a href="#" id="color-control" class="game-control" style="background: url({% static 'img/color-control.svg' %}) center no-repeat;"></a>
+        <a href="#" id="create-button" class="game-control" style="background: url({% static 'img/create-button.svg' %}) center no-repeat; width: 130px;"></a>
+        <a href="#" id="play-button" class="game-control" style="background: url({% static 'img/play-button.svg' %}) center no-repeat; width: 130px; display: none;"></a>
+        <a href="#" id="cancel-button" class="game-control" style="background: url({% static 'img/cancel-button.svg' %}) center no-repeat; width: 130px; display: none;"></a>
     </div>
 </div>
 {% endblock content %}
