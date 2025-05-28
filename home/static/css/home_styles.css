@@ -17,3 +17,11 @@ div.sign-buttons {
     align-items: center;
     gap: 20px;
 }
+
+section.news {
+    padding-top: 48px;
+    text-align: left;
+    width: 500px;
+    line-height: 28px;
+    margin: 0 auto;
+}
