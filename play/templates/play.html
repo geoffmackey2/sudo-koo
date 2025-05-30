@@ -102,11 +102,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var undoHappened = false;
 
     function setupGame() {
-        const importedPuzzle = game.dataset.importedPuzzle;
-        if(importedPuzzle === 'True') {
+        if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
             localStorage.setItem('puzzleData', game.dataset.importedPuzzleData.split(''));
             localStorage.removeItem('puzzleHistory');
             localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
+        } else if(game.dataset.puzzleImportError === 'True') {
+            displayErrorMessage(errors.SERVER_ERROR);
         }
         checkLocalStorage();
         var currentPuzzleTitle = '';
@@ -1700,7 +1701,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-<div id="game" data-imported-puzzle="{{ imported_puzzle }}" data-imported-puzzle-data="{{ puzzle_data }}" data-puzzle-title="{{ puzzle_title }}">
+<div id="game" data-imported-puzzle="{{ imported_puzzle }}" data-imported-puzzle-data="{{ puzzle_data }}" data-puzzle-title="{{ puzzle_title }}" data-puzzle-import-error="{{ import_error }}">
     <div id="header">
         <a href="/">
             <img src="{% static 'img/site-logo.svg' %}" class="site-logo">
