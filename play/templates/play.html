@@ -8,6 +8,7 @@
 {% block content %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const game = document.getElementById('game');
     const grid = document.getElementById('game-grid');
     const gridBackground = grid.getElementById('grid-background');
     const cells = grid.getElementsByClassName('cell');
@@ -17,10 +18,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const middleControl = document.getElementById('middle-control');
     const colorControl = document.getElementById('color-control');
     const createButton = document.getElementById('create-button');
+    const importButton = document.getElementById('import-button');
     const playButton = document.getElementById('play-button');
     const cancelButton = document.getElementById('cancel-button');
     const errorMessage = document.getElementById('error-message');
     const happyMessage = document.getElementById('happy-message');
+    const puzzleTitle = document.getElementById('puzzle-title');
+    const importDialog = document.getElementById('import-dialog');
+    const importDialogCancelButton = document.getElementById('import-cancel');
     const modes = {
         DIGIT: 'digit',
         CORNER: 'corner',
@@ -78,6 +83,10 @@ document.addEventListener('DOMContentLoaded', function() {
         INVALID_PUZZLE: 'Sorry, this puzzle isn\'t valid! Double-check your given digits.',
         SERVER_ERROR: 'Sorry, something went wrong! Try again.'
     }
+    const happyMessages = {
+        GREAT_JOB: 'Great job. You solved the puzzle!',
+        STARTING_TIP: 'Click "create" or "import" to set up a puzzle and start playing!'
+    }
     const stepDirection = {
         BACKWARD: 'backward',
         FORWARD: 'forward'
@@ -93,74 +102,87 @@ document.addEventListener('DOMContentLoaded', function() {
     var undoHappened = false;
 
     function setupGame() {
+        const importedPuzzle = game.dataset.importedPuzzle;
+        if(importedPuzzle === 'True') {
+            localStorage.setItem('puzzleData', game.dataset.importedPuzzleData.split(''));
+            localStorage.removeItem('puzzleHistory');
+            localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
+        }
         checkLocalStorage();
+        var currentPuzzleTitle = '';
+        if(localStorage.getItem('puzzleTitle') != null) {
+            currentPuzzleTitle = localStorage.getItem('puzzleTitle');
+        }
+        puzzleTitle.innerHTML = currentPuzzleTitle;
         setupControls();
 
         var keyPressed = false;
 
         document.addEventListener("pointerdown", function (event) {
-            event.preventDefault();
-            const pointerX = event.pageX + window.scrollX;
-            const pointerY = event.pageY + window.scrollY;
-            var dragging = false;
-            
-            if(!event.shiftKey && !targetIsControlOrBackground(event.target)) {
-                if(event.target.parentElement === lastCellSelection && getSelectedCells().length === 1) {
-                    deselectAll(lastCellSelection);
-                } else {
+            if(!importDialog.open) {
+                event.preventDefault();
+                const pointerX = event.pageX + window.scrollX;
+                const pointerY = event.pageY + window.scrollY;
+                var dragging = false;
+                
+                if(!event.shiftKey && !targetIsControlOrBackground(event.target)) {
+                    if(event.target.parentElement === lastCellSelection && getSelectedCells().length === 1) {
+                        deselectAll(lastCellSelection);
+                    } else {
+                        deselectAll();
+                    }
+                }
+                for (const cell of cells) {
+                    if (checkPointerIntersection({x: pointerX, y: pointerY}, cell)) {
+                        if(!isSelected(cell)) {
+                            selectCell(cell);
+                        } else {
+                            deselectCell(cell);
+                        }
+                    }
+                }
+                if(!checkPointerIntersection({x: pointerX, y: pointerY}, grid) &&
+                !checkPointerIntersection({x: pointerX, y: pointerY}, gameControls)) {
                     deselectAll();
                 }
-            }
-            for (const cell of cells) {
-                if (checkPointerIntersection({x: pointerX, y: pointerY}, cell)) {
-                    if(!isSelected(cell)) {
-                        selectCell(cell);
-                    } else {
-                        deselectCell(cell);
-                    }
-                }
-            }
-            if(!checkPointerIntersection({x: pointerX, y: pointerY}, grid) &&
-               !checkPointerIntersection({x: pointerX, y: pointerY}, gameControls)) {
-                deselectAll();
-            }
 
-            function makeSelections(event) {
-                if(currentMode != modes.CREATE) {
-                    const pointerX = event.pageX + window.scrollX;
-                    const pointerY = event.pageY + window.scrollY;
+                function makeSelections(event) {
+                    if(currentMode != modes.CREATE) {
+                        const pointerX = event.pageX + window.scrollX;
+                        const pointerY = event.pageY + window.scrollY;
 
-                    if(originalDragTarget === null) {
-                        originalDragTarget = event.target;
-                    }
+                        if(originalDragTarget === null) {
+                            originalDragTarget = event.target;
+                        }
 
-                    if(dragging && checkPointerIntersection({x: pointerX, y: pointerY}, grid) && targetIsControlOrBackground(originalDragTarget)) {
-                        for(const cell of cells) {
+                        if(dragging && checkPointerIntersection({x: pointerX, y: pointerY}, grid) && targetIsControlOrBackground(originalDragTarget)) {
+                            for(const cell of cells) {
+                                if (checkPointerIntersection({x: pointerX, y: pointerY}, cell)) {
+                                    deselectAll();
+                                    originalDragTarget = false;
+                                }
+                            }
+                        }
+                        if(!dragging && !event.shiftKey && !targetIsControlOrBackground(event.target)) {
+                            deselectAll();
+                        }
+                        dragging = true;
+
+                        for (const cell of cells) {
                             if (checkPointerIntersection({x: pointerX, y: pointerY}, cell)) {
-                                deselectAll();
-                                originalDragTarget = false;
+                                selectCell(cell);
                             }
                         }
                     }
-                    if(!dragging && !event.shiftKey && !targetIsControlOrBackground(event.target)) {
-                        deselectAll();
-                    }
-                    dragging = true;
-
-                    for (const cell of cells) {
-                        if (checkPointerIntersection({x: pointerX, y: pointerY}, cell)) {
-                            selectCell(cell);
-                        }
-                    }
                 }
-            }
 
-            document.addEventListener("pointermove", makeSelections);
-            document.addEventListener("pointerup", () => {
-                document.removeEventListener("pointermove", makeSelections);
-                dragging = false;
-                originalDragTarget = null;
-            });
+                document.addEventListener("pointermove", makeSelections);
+                document.addEventListener("pointerup", () => {
+                    document.removeEventListener("pointermove", makeSelections);
+                    dragging = false;
+                    originalDragTarget = null;
+                });
+            }
         });
 
         document.addEventListener('keydown', function(event) {
@@ -331,12 +353,22 @@ document.addEventListener('DOMContentLoaded', function() {
             checkLocalStorage();
             exitCreateMode();
         });
+
+        importButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            importDialog.showModal();
+        });
+
+        importDialogCancelButton.addEventListener('click', function(event) {
+            importDialog.close();
+        });
     }
 
     function exitCreateMode() {
         playButton.style.display = 'none';
         createButton.style.display = 'block';
         cancelButton.style.display = 'none';
+        importButton.style.display = 'block'
         digitControl.style.pointerEvents = 'auto';
         digitControl.style.opacity = '1';
         cornerControl.style.pointerEvents = 'auto';
@@ -345,6 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
         middleControl.style.opacity = '1';
         colorControl.style.pointerEvents = 'auto';
         colorControl.style.opacity = '1';
+        puzzleTitle.style.display = 'block';
         if(!activeGame) {
             clearGrid();
         }
@@ -370,8 +403,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if(verified === 'true') {
                 gameState = puzzleSetData.split('');
                 localStorage.setItem('puzzleData', gameState);
-                activeGame = true;
+                localStorage.setItem('puzzleTitle', 'Custom Puzzle');
+                puzzleTitle.innerHTML = 'Custom Puzzle';
                 localStorage.removeItem('puzzleHistory');
+                activeGame = true;
                 exitCreateMode();
             } else {
                 displayErrorMessage(errors.INVALID_PUZZLE);
@@ -805,6 +840,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 playButton.style.display = 'block';
                 cancelButton.style.display = 'block';
                 createButton.style.display = 'none';
+                importButton.style.display = 'none';
                 digitControl.style.pointerEvents = 'none';
                 cornerControl.style.pointerEvents = 'none';
                 middleControl.style.pointerEvents = 'none';
@@ -813,6 +849,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cornerControl.style.opacity = '0.25'
                 middleControl.style.opacity = '0.25';
                 colorControl.style.opacity = '0.25'
+                puzzleTitle.style.display = 'none';
                 break;
         }
     }
@@ -1083,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function gameOver() {
-        displayHappyMessage('Great job. You solved the puzzle!');
+        displayHappyMessage(happyMessages.GREAT_JOB);
     }
 
     function placeCornerMarkInSelectedCells(digit, addToHistory) {
@@ -1643,8 +1680,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', resizeGrid, true);
     resizeGrid();
 
-    setupGame();
-
     function encryptString(text) {
         if(text != null) return btoa(text);
         return '{}';
@@ -1654,13 +1689,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if(encryptedText != null) return atob(encryptedText);
         return '{}';
     }
+
+    if (window.history.replaceState) {
+        window.history.replaceState(null, null, window.location.href);
+    }
+
+    setupGame();
+    if(!activeGame) {
+        displayHappyMessage(happyMessages.STARTING_TIP);
+    }
 });
 </script>
-<div id="game">
+<div id="game" data-imported-puzzle="{{ imported_puzzle }}" data-imported-puzzle-data="{{ puzzle_data }}" data-puzzle-title="{{ puzzle_title }}">
     <div id="header">
         <a href="/">
-            <img src="{% static 'img/site-logo.svg' %}" id="site-logo">
+            <img src="{% static 'img/site-logo.svg' %}" class="site-logo">
         </a>
+        <span id="puzzle-title"></span>
     </div>
     <svg width="762" height="762" viewBox="0 0 762 762" fill="none" id="game-grid" xmlns="http://www.w3.org/2000/svg">
     <rect x="11" y="11" width="740" height="740" fill="#285C77" id="grid-background"/>
@@ -1911,14 +1956,33 @@ document.addEventListener('DOMContentLoaded', function() {
     </svg>
     <div id="error-message"></div>
     <div id="happy-message"></div>
+    <dialog id="import-dialog">
+        <h4>Import Puzzle</h4>
+        <form method="post">
+            {% csrf_token %}
+            <p>
+                <label for="popular-puzzles">Popular puzzles:</label>
+                <select id="puzzles-select" name="popular-puzzles">
+                    <option value="nyt-hard">New York Times - Hard (Today)</option>
+                    <option value="nyt-medium">New York Times - Medium (Today)</option>
+                    <option value="nyt-easy">New York Times - Easy (Today)</option>
+                </select>
+            </p>
+            <div class="dialog-controls">
+                <button id="import-cancel" type="reset">Cancel</button>
+                <button id="import-submit" type="submit">Import</button>
+            </div>
+        </form>
+    </dialog>
     <div id="game-controls">
         <a href="#" id="digit-control" class="game-control selected" style="background: url({% static 'img/digit-control.svg' %}) center no-repeat;"></a>
         <a href="#" id="corner-control" class="game-control" style="background: url({% static 'img/corner-control.svg' %}) center bottom no-repeat;"></a>
         <a href="#" id="middle-control" class="game-control" style="background: url({% static 'img/middle-control.svg' %}) center bottom no-repeat;"></a>
         <a href="#" id="color-control" class="game-control" style="background: url({% static 'img/color-control.svg' %}) center no-repeat;"></a>
-        <a href="#" id="create-button" class="game-control" style="background: url({% static 'img/create-button.svg' %}) center no-repeat; width: 130px;"></a>
+        <a href="#" id="create-button" class="game-control" style="background: url({% static 'img/create-button.svg' %}) 50% 48% no-repeat; width: 130px;"></a>
+        <a href="#" id="import-button" class="game-control" style="background: url({% static 'img/import-button.svg' %}) 50% 53% no-repeat; width: 130px;"></a>
         <a href="#" id="play-button" class="game-control" style="background: url({% static 'img/play-button.svg' %}) center no-repeat; width: 130px; display: none;"></a>
-        <a href="#" id="cancel-button" class="game-control" style="background: url({% static 'img/cancel-button.svg' %}) center no-repeat; width: 130px; display: none;"></a>
+        <a href="#" id="cancel-button" class="game-control" style="background: url({% static 'img/cancel-button.svg' %}) 50% 45% no-repeat; width: 130px; display: none;"></a>
     </div>
 </div>
 {% endblock content %}

@@ -4,11 +4,27 @@
     left: 20px;
 }
 
+#header .site-logo {
+    width: 175px;
+    display: block;
+}
+
+#puzzle-title {
+    position: absolute;
+    left: 190px;
+    top: 28.5px;
+    width: 425px;
+    text-align: left;
+    font-size: 1.3em;
+    color: #61C9FF;
+    font-weight: bold;
+}
+
 #game-grid {
     cursor: pointer;
     position: absolute;
     left: 20px;
-    top: 108px;
+    top: 75px;
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
     perspective: 1000;
@@ -100,7 +116,8 @@ a.game-control.selected {
 #game-controls {
     position: absolute;  
     left: 20px;
-    top: 862px;
+    top: 840px;
+    width: 762px;
 }
 
 #game {
@@ -111,7 +128,7 @@ a.game-control.selected {
 
 #error-message {
     position: absolute;
-    top:131px;
+    top: 131px;
     left: 124px;
     border: 3px solid #A12D4E;
     border-radius: 5px; font-weight: bold;
@@ -125,7 +142,7 @@ a.game-control.selected {
 
 #happy-message {
     position: absolute;
-    top:131px;
+    top: 131px;
     left: 124px;
     border: 3px solid #19bb52;
     border-radius: 5px; font-weight: bold;
@@ -135,4 +152,68 @@ a.game-control.selected {
     display: none;
     transition: opacity 200ms ease-in-out;
     opacity: 0;
+}
+
+#import-dialog {
+    border: 5px solid #61C9FF;
+    border-radius: 5px;;
+}
+
+#import-dialog h4 {
+    margin: 0 0 20px 0;
+    text-align: left;
+    font-size: 1.4em;
+}
+
+#puzzles-select {
+    height: 30px;
+    padding: 0px 4px;
+}
+
+dialog:open {
+  opacity: 1;
+}
+
+dialog {
+  opacity: 0;
+  transition:
+    opacity 0.3s ease-out,
+    overlay 0.3s ease-out allow-discrete,
+    display 0.3s ease-out allow-discrete;
+}
+
+@starting-style {
+  dialog:open {
+    opacity: 0;
+  }
+}
+
+dialog::backdrop {
+  background-color: rgb(0 0 0 / 0%);
+  transition:
+    display 0.7s allow-discrete,
+    overlay 0.7s allow-discrete,
+    background-color 0.3s;
+}
+
+dialog:open::backdrop {
+  background-color: rgb(0 0 0 / 75%);
+}
+
+@starting-style {
+  dialog:open::backdrop {
+    background-color: rgb(0 0 0 / 0%);
+  }
+}
+
+div.dialog-controls {
+    text-align: right;
+}
+
+#import-submit {
+    margin-left: 12px;
+}
+
+#puzzles-select {
+    margin-left: 4px;
 }

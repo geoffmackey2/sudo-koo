@@ -15,10 +15,7 @@ def getNYTPuzzles():
 
     gameData = json.loads(gameData)
 
-    hard = ("hard", "".join([str(i) for i in gameData["hard"]["puzzle_data"]["puzzle"]]))
-    medium = (
-        "medium",
-        "".join([str(i) for i in gameData["medium"]["puzzle_data"]["puzzle"]]),
-    )
-    easy = ("easy", "".join([str(i) for i in gameData["easy"]["puzzle_data"]["puzzle"]]))
+    hard = ("".join([str(i) for i in gameData["hard"]["puzzle_data"]["puzzle"]]))
+    medium = ("".join([str(i) for i in gameData["medium"]["puzzle_data"]["puzzle"]]))
+    easy = ("".join([str(i) for i in gameData["easy"]["puzzle_data"]["puzzle"]]))
     return (hard, medium, easy)
