@@ -1962,11 +1962,12 @@ document.addEventListener('DOMContentLoaded', function() {
         <form method="post">
             {% csrf_token %}
             <p>
-                <label for="popular-puzzles">Popular puzzles:</label>
-                <select id="puzzles-select" name="popular-puzzles">
-                    <option value="nyt-hard">New York Times - Hard (Today)</option>
-                    <option value="nyt-medium">New York Times - Medium (Today)</option>
-                    <option value="nyt-easy">New York Times - Easy (Today)</option>
+                <label for="generate-puzzles">Generate puzzle:</label>
+                <select id="puzzles-select" name="generate-puzzles">
+                    <option value="gen-extreme">sudo-koo - Extreme</option>
+                    <option value="gen-hard">sudo-koo - Hard</option>
+                    <option value="gen-medium">sudo-koo - Medium</option>
+                    <option value="gen-easy">sudo-koo - Easy</option>
                 </select>
             </p>
             <div class="dialog-controls">
@@ -1981,7 +1982,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="#" id="middle-control" class="game-control" style="background: url({% static 'img/middle-control.svg' %}) center bottom no-repeat;"></a>
         <a href="#" id="color-control" class="game-control" style="background: url({% static 'img/color-control.svg' %}) center no-repeat;"></a>
         <a href="#" id="create-button" class="game-control" style="background: url({% static 'img/create-button.svg' %}) 50% 48% no-repeat; width: 130px;"></a>
-        <a href="#" id="import-button" class="game-control" style="background: url({% static 'img/import-button.svg' %}) 50% 53% no-repeat; width: 130px; display: none;"></a>
+        <a href="#" id="import-button" class="game-control" style="background: url({% static 'img/import-button.svg' %}) 50% 53% no-repeat; width: 130px;"></a>
         <a href="#" id="play-button" class="game-control" style="background: url({% static 'img/play-button.svg' %}) center no-repeat; width: 130px; display: none;"></a>
         <a href="#" id="cancel-button" class="game-control" style="background: url({% static 'img/cancel-button.svg' %}) 50% 45% no-repeat; width: 130px; display: none;"></a>
     </div>

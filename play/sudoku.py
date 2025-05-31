@@ -67,11 +67,13 @@ def has_unique_solution(grid):
     if not solve(grid):
         return False
     solutions = 0
-    firstEmptyCell = grid.find('0')
-    for num in range(1, 10):
-        grid = replace_char_at_index(grid, firstEmptyCell, str(num))
-        if solve(grid):
-            solutions += 1
+    cells = list(grid)
+    for index, cell in enumerate(cells):
+        if cell == '0':
+            for num in range(1, 10):
+                grid = replace_char_at_index(grid, index, str(num))
+                if solve(grid):
+                    solutions += 1
     return solutions == 1
 
 def search(values):
@@ -88,19 +90,50 @@ def some(seq):
         if e: return e
     return False
 
-def random_puzzle(N=17):
+def random_puzzle():
     values = dict((s, digits) for s in squares)
     for s in shuffled(squares):
         if not assign(values, s, random.choice(values[s])):
             break
         ds = [values[s] for s in squares if len(values[s]) == 1]
-        if len(ds) >= N and len(set(ds)) >= 8:
-            grid = ''.join(values[s] if len(values[s])==1 else '.' for s in squares)
-            if has_unique_solution(grid):
+        if len(ds) == 30 and len(set(ds)) >= 8:
+            grid = ''.join(values[s] if len(values[s])==1 else '0' for s in squares)
+            if(has_unique_solution(grid)):
                 return grid
-    return random_puzzle(N)
+    return random_puzzle()
 
 def shuffled(seq):
     seq = list(seq)
     random.shuffle(seq)
     return seq
+
+def generate_puzzle(difficulty):
+    puzzle_cells = list(solve(random_puzzle()).values())
+    cells_to_remove = get_removal_count(difficulty)
+    cells = [i for i in range(81)]
+    random.shuffle(cells)
+
+    removed_count = 0
+    for cell in cells:
+        if removed_count >= cells_to_remove:
+            break
+        temp = puzzle_cells[cell]
+        puzzle_cells[cell] = '0'
+        grid = ''.join(puzzle_cells)
+        if not has_unique_solution(grid):
+            puzzle_cells[cell] = temp
+        else:
+            removed_count += 1
+    grid = ''.join(puzzle_cells)
+    return grid
+
+def get_removal_count(difficulty):
+  match difficulty:
+      case 'easy':
+          return random.randint(36, 46)
+      case 'medium':
+          return random.randint(51, 56)
+      case 'hard':
+          return random.randint(56, 61)
+      case 'extreme':
+          return random.randint(61, 64)
