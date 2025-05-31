@@ -1,3 +1,5 @@
+import random
+
 def cross(A, B):
     return [a+b for a in A for b in B]
 
@@ -85,3 +87,20 @@ def some(seq):
     for e in seq:
         if e: return e
     return False
+
+def random_puzzle(N=17):
+    values = dict((s, digits) for s in squares)
+    for s in shuffled(squares):
+        if not assign(values, s, random.choice(values[s])):
+            break
+        ds = [values[s] for s in squares if len(values[s]) == 1]
+        if len(ds) >= N and len(set(ds)) >= 8:
+            grid = ''.join(values[s] if len(values[s])==1 else '.' for s in squares)
+            if has_unique_solution(grid):
+                return grid
+    return random_puzzle(N)
+
+def shuffled(seq):
+    seq = list(seq)
+    random.shuffle(seq)
+    return seq
