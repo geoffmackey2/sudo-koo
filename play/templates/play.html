@@ -285,9 +285,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if(puzzleHistory != null) {
             puzzleHistory = JSON.parse(decryptString(puzzleHistory));
             lastHistoryIndex = parseInt(puzzleHistory['lastHistoryIndex']);
-            for(var i = 0; i <= lastHistoryIndex; i++) {
-                stepThroughHistory(stepDirection.FORWARD);
+            console.log(puzzleHistory['clearedBoard'])
+            if(lastHistoryIndex > 0 || !puzzleHistory['clearedBoard']) {
+                for(var i = 0; i <= lastHistoryIndex; i++) {
+                    stepThroughHistory(stepDirection.FORWARD);
+                }
+                deselectAll();
             }
+        } else {
+            puzzleHistory = {
+                actions: [],
+                lastHistoryIndex: historyIndex,
+                clearedBoard: false
+            };
+            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         }
     }
 
@@ -916,6 +927,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function stepThroughHistory(direction) {
         if(puzzleHistory != null) {
+            puzzleHistory['clearedBoard'] = false;
             if(direction === stepDirection.FORWARD) {
                 undoHappened = false;
                 historyIndex++;
@@ -925,10 +937,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 puzzleHistory['lastHistoryIndex'] = historyIndex;
                 localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
             }
-            if(direction === stepDirection.BACKWARD && historyIndex > puzzleHistory['actions'].length - 1) {
-                historyIndex = puzzleHistory['actions'].length - 1;
-                puzzleHistory['lastHistoryIndex'] = historyIndex;
-                localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+            if(direction === stepDirection.BACKWARD && historyIndex === puzzleHistory['actions'].length) {
+                historyIndex--;
             }
             if(historyIndex > -1 && historyIndex < puzzleHistory['actions'].length) {
                 var lastAction = puzzleHistory['actions'][historyIndex];
@@ -1015,7 +1025,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 undoHappened = true;
                 historyIndex--;
                 if(historyIndex < 0) {
-                    historyIndex = -1;
+                    puzzleHistory['clearedBoard'] = true;
+                    historyIndex = 0;
                     deselectAll();
                 }
                 puzzleHistory['lastHistoryIndex'] = historyIndex;
@@ -1025,18 +1036,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateHistory(action, cellConfigurations) {
-        var puzzleHistory = JSON.parse(decryptString(localStorage.getItem('puzzleHistory')));
-        if(Object.keys(puzzleHistory).length === 0) {
-            historyIndex = -1;
-            puzzleHistory = {
-                actions: [],
-                lastHistoryIndex: historyIndex
-            };
-            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
-        }
         if(undoHappened) {
-            puzzleHistory['actions'].splice(historyIndex + 1);
-            historyIndex = puzzleHistory['actions'].length - 1;
+            if(historyIndex === 0) {
+                puzzleHistory['actions'] = [];
+            } else {
+                puzzleHistory['actions'].splice(historyIndex + 1);
+                historyIndex = puzzleHistory['actions'].length - 1;
+            }
             puzzleHistory['lastHistoryIndex'] = historyIndex;
             undoHappened = false;
         }
@@ -1505,15 +1511,24 @@ document.addEventListener('DOMContentLoaded', function() {
         for(const cell of selectedCells) {
             if(currentMode === modes.CREATE && cell.getElementsByClassName('given-digit').length > 0) {
                 cell.getElementsByClassName('given-digit')[0].remove();
-            }
-            if(cell.getElementsByClassName('placed-digit').length > 0) {
-                clearCellDigit(cell);
-            } else if(cell.getElementsByClassName('middle-marks').length > 0) {
-                clearCellMiddleMarks(cell);
-            } else if(cell.getElementsByClassName('corner-mark').length > 0) {
-                clearCellCornerMarks(cell);
-            } else if(cell.getElementsByClassName('color-segment').length > 0) {
-                clearCellColors(cell);
+            } else {
+                if(currentMode === modes.COLOR && cell.getElementsByClassName('color-segment').length > 0) {
+                    clearCellColors(cell);
+                } else if (currentMode === modes.MIDDLE && cell.getElementsByClassName('middle-marks').length > 0) {
+                    clearCellMiddleMarks(cell);
+                }  else if (currentMode === modes.CORNER && cell.getElementsByClassName('corner-mark').length > 0) {
+                    clearCellCornerMarks(cell);
+                } else {
+                    if(cell.getElementsByClassName('placed-digit').length > 0) {
+                            clearCellDigit(cell);
+                        } else if(cell.getElementsByClassName('middle-marks').length > 0) {
+                            clearCellMiddleMarks(cell);
+                        } else if(cell.getElementsByClassName('corner-mark').length > 0) {
+                            clearCellCornerMarks(cell);
+                        } else if(cell.getElementsByClassName('color-segment').length > 0) {
+                            clearCellColors(cell);
+                        }
+                }
             }
         }
     }
