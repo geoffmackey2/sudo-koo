@@ -1,4 +1,5 @@
 import random
+import itertools
 
 def cross(A, B):
     return [a+b for a in A for b in B]
@@ -92,21 +93,61 @@ def replace_char_at_index(text, index, replacement):
   else:
     return text
 
+def test_solve(grid, solutions):
+    if not '0' in grid:
+        solutions[0] += 1
+        if solutions[0] > 1:
+            raise Exception('Puzzle is not unique');
+        return
+    empty_cell_index = grid.index('0')
+    for num in range(1, 10):
+        temp_grid = replace_char_at_index(grid, empty_cell_index, str(num))
+        if valid_grid(temp_grid):
+            grid = replace_char_at_index(grid, empty_cell_index, str(num))
+            test_solve(grid, solutions)
+            grid = replace_char_at_index(grid, empty_cell_index, str(0))
+
 def has_unique_solution(grid):
     total_solutions = 0
     cells = list(grid)
     number_of_empy_cells = cells.count('0')
-    for index, cell in enumerate(cells):
+    for index, cell in cells:
         if cell == '0':
             cell_solutions = 0
             for num in range(1, 10):
                 test_grid = replace_char_at_index(grid, index, str(num))
                 if solve(test_grid):
                     cell_solutions +=1
-                    total_solutions +=1
             if cell_solutions > 1:
                 return False
-    return total_solutions == number_of_empy_cells
+    return total_solutions
+    
+
+def valid_unit(unit):
+    seen = set()
+    for num in unit:
+        if num != 0:
+            if num in seen:
+                return False
+            seen.add(num)
+    return True
+      
+def valid_grid(grid):
+    board = [int(digit) for digit in list(grid)]
+    board = [board[i:i + 9] for i in range(0, len(board), 9)]
+    for row in board:
+        if not valid_unit(row):
+            return False
+    for col in range(9):
+        if not valid_unit([board[row][col] for row in range(9)]):
+            return False
+    for i in range(0, 9, 3):
+        for j in range(0, 9, 3):
+            subgrid = [board[x][y] for x in range(i, i + 3) for y in range(j, j + 3)]
+            if not valid_unit(subgrid):
+                return False
+    return True
+    
 
 def generate_puzzle(difficulty):
     puzzle_cells = list(solve(random_puzzle()).values())

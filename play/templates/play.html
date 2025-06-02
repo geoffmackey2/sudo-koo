@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var activeGame;
     var historyIndex = -1;
     var undoHappened = false;
+    var puzzleHistory;
 
     function setupGame() {
         if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
@@ -280,10 +281,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
-        const puzzleHistory = JSON.parse(decryptString(localStorage.getItem('puzzleHistory')));
+        puzzleHistory = localStorage.getItem('puzzleHistory');
         if(puzzleHistory != null) {
-            historyIndex = -1;
-            for(var i = 0; i <= parseInt(puzzleHistory['lastHistoryIndex']); i++) {
+            puzzleHistory = JSON.parse(decryptString(puzzleHistory));
+            lastHistoryIndex = parseInt(puzzleHistory['lastHistoryIndex']);
+            for(var i = 0; i <= lastHistoryIndex; i++) {
                 stepThroughHistory(stepDirection.FORWARD);
             }
         }
@@ -913,7 +915,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function stepThroughHistory(direction) {
-        var puzzleHistory = JSON.parse(decryptString(localStorage.getItem('puzzleHistory')));
         if(puzzleHistory != null) {
             if(direction === stepDirection.FORWARD) {
                 undoHappened = false;
@@ -963,8 +964,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         for(const cell of selectedCells) {
                             deselectAll();
                             selectCell(getCellByID(cell['cellID']));
-                            if(cell['placedDigits'].length > 0) {
-                                placeDigitInSelectedSells(cell['placedDigits'])
+                            if(direction === stepDirection.BACKWARD) {
+                                previousDigit = cell['placedDigits'][0];
+                                if(previousDigit != null) {
+                                    placeDigitInSelectedSells(cell['placedDigits'][0]);
+                                } else {
+                                    clearCellDigit(getCellByID(cell['cellID']));
+                                }
                             } else {
                                 placeDigitInSelectedSells(cell['newValue'], false);
                             }
