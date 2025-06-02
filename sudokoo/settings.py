@@ -87,14 +87,23 @@ RQ_QUEUES = {
     'default': {
         'URL': os.environ.get('REDIS_URL'),
         'DEFAULT_TIMEOUT': 500,
+        'REDIS_CLIENT_KWARGS': {
+            'ssl_cert_reqs': None,
+        },
     },
     'high': {
         'URL': os.environ.get('REDIS_URL'),
         'DEFAULT_TIMEOUT': 500,
+        'REDIS_CLIENT_KWARGS': {
+            'ssl_cert_reqs': None,
+        },
     },
     'low': {
         'URL': os.environ.get('REDIS_URL'),
         'DEFAULT_TIMEOUT': 500,
+        'REDIS_CLIENT_KWARGS': {
+            'ssl_cert_reqs': None,
+        },
     }
 }
 
