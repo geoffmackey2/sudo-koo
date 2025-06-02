@@ -86,15 +86,15 @@ WSGI_APPLICATION = 'sudokoo.wsgi.application'
 RQ_QUEUES = {
     'default': {
         'URL': os.environ.get('REDIS_URL'),
-        'DB': 0,
+        'DEFAULT_TIMEOUT': 500,
     },
     'high': {
         'URL': os.environ.get('REDIS_URL'),
-        'DB': 0,
+        'DEFAULT_TIMEOUT': 500,
     },
     'low': {
         'URL': os.environ.get('REDIS_URL'),
-        'DB': 0,
+        'DEFAULT_TIMEOUT': 500,
     }
 }
 
