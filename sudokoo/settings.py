@@ -15,6 +15,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 import dj_database_url
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,21 +84,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'sudokoo.wsgi.application'
 
+redis_url = urlparse(os.environ.get("REDIS_URL"))
+
 RQ_QUEUES = {
     'default': {
-        'HOST': os.environ.get('REDIS_URL'),
-        'PORT': 6379,
+        'HOST': redis_url.hostname,
+        'PORT': redis_url.port,
         'DB': 0,
+        'USERNAME': redis_url.username,
+        'PASSWORD': redis_url.password,
     },
     'high': {
-        'HOST': os.environ.get('REDIS_URL'),
-        'PORT': 6379,
+        'HOST': redis_url.hostname,
+        'PORT': redis_url.port,
         'DB': 0,
+        'USERNAME': redis_url.username,
+        'PASSWORD': redis_url.password,
     },
     'low': {
-        'HOST': os.environ.get('REDIS_URL'),
-        'PORT': 6379,
+        'HOST': redis_url.hostname,
+        'PORT': redis_url.port,
         'DB': 0,
+        'USERNAME': redis_url.username,
+        'PASSWORD': redis_url.password,
     }
 }
 
