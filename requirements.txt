@@ -7,3 +7,5 @@ boto3
 dotenv
 requests
 bs4
+django-rq
+redis

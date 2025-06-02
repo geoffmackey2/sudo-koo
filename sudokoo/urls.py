@@ -21,4 +21,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('play/', include('play.urls')),
     path('', include('home.urls')),
+    path('django_rq/', include('django_rq.urls')),
 ]

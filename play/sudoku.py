@@ -1,4 +1,5 @@
 import random
+from django_rq import job
 
 def cross(A, B):
     return [a+b for a in A for b in B]
@@ -108,6 +109,7 @@ def has_unique_solution(grid):
                 return False
     return total_solutions == number_of_empy_cells
 
+@job
 def generate_puzzle(difficulty):
     puzzle_cells = list(solve(random_puzzle()).values())
     cells_to_remove = get_removal_count(difficulty)

@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'home',
-    'play'
+    'play',
+    'django_rq',
 ]
 
 MIDDLEWARE = [
@@ -82,6 +83,23 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'sudokoo.wsgi.application'
 
+RQ_QUEUES = {
+    'default': {
+        'HOST': 'localhost',
+        'PORT': 6379,
+        'DB': 0,
+    },
+    'high': {
+        'HOST': 'localhost',
+        'PORT': 6379,
+        'DB': 0,
+    },
+    'low': {
+        'HOST': 'localhost',
+        'PORT': 6379,
+        'DB': 0,
+    }
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

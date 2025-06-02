@@ -102,9 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setupGame() {
         if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
-            localStorage.setItem('puzzleData', game.dataset.importedPuzzleData.split(''));
-            localStorage.removeItem('puzzleHistory');
-            localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
+            checkPuzzleGenerationStatus();
         } else if(game.dataset.puzzleImportError === 'True') {
             displayErrorMessage(errors.SERVER_ERROR);
         }
@@ -270,6 +268,22 @@ document.addEventListener('DOMContentLoaded', function() {
             puzzleHistory['clearedBoard'] = grid_is_empty();
             localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         }
+    }
+
+    function checkPuzzleGenerationStatus() {
+        const jobID = game.dataset.puzzleJobId;
+        fetch('/play/puzzle_status/' + jobID)
+            .then(response => response.json())
+            .then(data => {
+            if (data.status !== 'finished' && data.status !== 'failed') {
+                setTimeout(checkPuzzleGenerationStatus, 1000);
+            } else {
+                localStorage.setItem('puzzleData', data.result);
+                localStorage.removeItem('puzzleHistory');
+                localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
+                checkLocalStorage();
+            }
+        });
     }
 
     function checkLocalStorage() {
@@ -1727,7 +1741,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-<div id="game" data-imported-puzzle="{{ imported_puzzle }}" data-imported-puzzle-data="{{ puzzle_data }}" data-puzzle-title="{{ puzzle_title }}" data-puzzle-import-error="{{ import_error }}">
+<div id="game" data-imported-puzzle="{{ imported_puzzle }}" data-puzzle-job-id="{{ job_id }}" data-puzzle-title="{{ puzzle_title }}" data-puzzle-import-error="{{ import_error }}">
     <div id="header">
         <a href="/">
             <img src="{% static 'img/site-logo.svg' %}" class="site-logo">
