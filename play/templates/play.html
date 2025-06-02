@@ -98,8 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var previousMode;
     var originalDragTarget;
     var activeGame;
-    var historyIndex = -1;
-    var undoHappened = false;
     var puzzleHistory;
 
     function setupGame() {
@@ -267,6 +265,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateCurrentMode(previousMode);
             }
         });
+
+        window.onbeforeunload = function(event) {
+            puzzleHistory['clearedBoard'] = grid_is_empty();
+            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+        }
     }
 
     function checkLocalStorage() {
@@ -285,9 +288,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if(puzzleHistory != null) {
             puzzleHistory = JSON.parse(decryptString(puzzleHistory));
             lastHistoryIndex = parseInt(puzzleHistory['lastHistoryIndex']);
-            console.log(puzzleHistory['clearedBoard'])
-            if(lastHistoryIndex > 0 || !puzzleHistory['clearedBoard']) {
-                for(var i = 0; i <= lastHistoryIndex; i++) {
+            if(lastHistoryIndex > -1) {
+                for(var i = 0; i < lastHistoryIndex; i++) {
                     stepThroughHistory(stepDirection.FORWARD);
                 }
                 deselectAll();
@@ -295,11 +297,31 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             puzzleHistory = {
                 actions: [],
-                lastHistoryIndex: historyIndex,
+                lastHistoryIndex: -1,
                 clearedBoard: false
             };
             localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         }
+    }
+
+    function grid_is_empty() {
+        for(const cell of cells) {
+            if(cell.getElementsByClassName('given-digit').length === 0) {
+                if(cell.getElementsByClassName('placed-digit').length > 0) {
+                    return false;
+                }
+                if(cell.getElementsByClassName('middle-marks').length > 0) {
+                    return false;
+                }
+                if(cell.getElementsByClassName('corner-mark').length > 0) {
+                    return false;
+                }
+                if(cell.getElementsByClassName('color-segment').length > 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     function placeGivenDigit(digit) {
@@ -927,21 +949,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function stepThroughHistory(direction) {
         if(puzzleHistory != null) {
-            puzzleHistory['clearedBoard'] = false;
             if(direction === stepDirection.FORWARD) {
-                undoHappened = false;
-                historyIndex++;
-                if(historyIndex > puzzleHistory['actions'].length - 1) {
-                    historyIndex = puzzleHistory['actions'].length;
+                puzzleHistory['lastHistoryIndex']++
+                if(puzzleHistory['lastHistoryIndex'] > puzzleHistory['actions'].length - 1) {
+                    puzzleHistory['lastHistoryIndex'] = puzzleHistory['actions'].length;
                 }
-                puzzleHistory['lastHistoryIndex'] = historyIndex;
                 localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
             }
-            if(direction === stepDirection.BACKWARD && historyIndex === puzzleHistory['actions'].length) {
-                historyIndex--;
+            if(direction === stepDirection.BACKWARD && puzzleHistory['lastHistoryIndex'] === puzzleHistory['actions'].length) {
+                puzzleHistory['lastHistoryIndex']--;
             }
-            if(historyIndex > -1 && historyIndex < puzzleHistory['actions'].length) {
-                var lastAction = puzzleHistory['actions'][historyIndex];
+            if(puzzleHistory['lastHistoryIndex'] > -1 && puzzleHistory['lastHistoryIndex'] < puzzleHistory['actions'].length) {
+                var lastAction = puzzleHistory['actions'][puzzleHistory['lastHistoryIndex']];
                 var selectedCellStrings = lastAction['cells'];
                 var selectedCells = [];
                 for(const cellString of selectedCellStrings) {
@@ -977,7 +996,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             if(direction === stepDirection.BACKWARD) {
                                 previousDigit = cell['placedDigits'][0];
                                 if(previousDigit != null) {
-                                    placeDigitInSelectedSells(cell['placedDigits'][0]);
+                                    placeDigitInSelectedSells(cell['placedDigits'][0], false);
                                 } else {
                                     clearCellDigit(getCellByID(cell['cellID']));
                                 }
@@ -1022,37 +1041,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             if(direction === stepDirection.BACKWARD) {
-                undoHappened = true;
-                historyIndex--;
-                if(historyIndex < 0) {
-                    puzzleHistory['clearedBoard'] = true;
-                    historyIndex = 0;
+                puzzleHistory['lastHistoryIndex']--;
+                if(puzzleHistory['lastHistoryIndex'] < 0) {
+                    puzzleHistory['lastHistoryIndex'] = -1;
                     deselectAll();
                 }
-                puzzleHistory['lastHistoryIndex'] = historyIndex;
                 localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
             }
         }
     }
 
     function updateHistory(action, cellConfigurations) {
-        if(undoHappened) {
-            if(historyIndex === 0) {
-                puzzleHistory['actions'] = [];
-            } else {
-                puzzleHistory['actions'].splice(historyIndex + 1);
-                historyIndex = puzzleHistory['actions'].length - 1;
-            }
-            puzzleHistory['lastHistoryIndex'] = historyIndex;
-            undoHappened = false;
-        }
         var lastAction = {
             action: action,
             cells: cellConfigurations
         }
         puzzleHistory['actions'].push(lastAction);
-        historyIndex = puzzleHistory['actions'].length - 1;
-        puzzleHistory['lastHistoryIndex'] = historyIndex;
+        puzzleHistory['lastHistoryIndex'] = puzzleHistory['actions'].length - 1;
         localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
     }
 
