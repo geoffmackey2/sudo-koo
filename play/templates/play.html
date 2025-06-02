@@ -102,6 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setupGame() {
         if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
+            puzzleTitle.innerHTML = 'Generating new puzzle...';
             checkPuzzleGenerationStatus();
         } else if(game.dataset.puzzleImportError === 'True') {
             displayErrorMessage(errors.SERVER_ERROR);
@@ -278,9 +279,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status !== 'finished' && data.status !== 'failed') {
                 setTimeout(checkPuzzleGenerationStatus, 1000);
             } else {
-                localStorage.setItem('puzzleData', data.result);
+                localStorage.setItem('puzzleData', data.result.split('').join(','));
                 localStorage.removeItem('puzzleHistory');
                 localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
+                puzzleTitle.innerHTML = game.dataset.puzzleTitle;
                 checkLocalStorage();
             }
         });
