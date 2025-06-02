@@ -85,17 +85,17 @@ WSGI_APPLICATION = 'sudokoo.wsgi.application'
 
 RQ_QUEUES = {
     'default': {
-        'HOST': 'localhost',
+        'HOST': os.environ.get('REDIS_URL'),
         'PORT': 6379,
         'DB': 0,
     },
     'high': {
-        'HOST': 'localhost',
+        'HOST': os.environ.get('REDIS_URL'),
         'PORT': 6379,
         'DB': 0,
     },
     'low': {
-        'HOST': 'localhost',
+        'HOST': os.environ.get('REDIS_URL'),
         'PORT': 6379,
         'DB': 0,
     }
