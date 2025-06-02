@@ -101,18 +101,20 @@ document.addEventListener('DOMContentLoaded', function() {
     var puzzleHistory;
 
     function setupGame() {
-        if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
-            puzzleTitle.innerHTML = 'Generating new puzzle...';
-            checkPuzzleGenerationStatus();
-        } else if(game.dataset.puzzleImportError === 'True') {
-            displayErrorMessage(errors.SERVER_ERROR);
-        }
         checkLocalStorage();
         var currentPuzzleTitle = '';
         if(localStorage.getItem('puzzleTitle') != null) {
             currentPuzzleTitle = localStorage.getItem('puzzleTitle');
         }
         puzzleTitle.innerHTML = currentPuzzleTitle;
+        
+        if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
+            puzzleTitle.innerHTML = 'Generating new puzzle...';
+            checkPuzzleGenerationStatus();
+        } else if(game.dataset.puzzleImportError === 'True') {
+            displayErrorMessage(errors.SERVER_ERROR);
+        }
+        
         setupControls();
 
         var keyPressed = false;
