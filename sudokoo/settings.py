@@ -85,25 +85,16 @@ WSGI_APPLICATION = 'sudokoo.wsgi.application'
 
 RQ_QUEUES = {
     'default': {
-        'URL': os.environ.get('REDIS_URL'),
+        'URL': f"{os.getenv('REDIS_URL')}?ssl_cert_reqs=None",
         'DEFAULT_TIMEOUT': 500,
-        'REDIS_CLIENT_KWARGS': {
-            'ssl_cert_reqs': None,
-        },
     },
     'high': {
-        'URL': os.environ.get('REDIS_URL'),
+        'URL': f"{os.getenv('REDIS_URL')}?ssl_cert_reqs=None",
         'DEFAULT_TIMEOUT': 500,
-        'REDIS_CLIENT_KWARGS': {
-            'ssl_cert_reqs': None,
-        },
     },
     'low': {
-        'URL': os.environ.get('REDIS_URL'),
+        'URL': f"{os.getenv('REDIS_URL')}?ssl_cert_reqs=None",
         'DEFAULT_TIMEOUT': 500,
-        'REDIS_CLIENT_KWARGS': {
-            'ssl_cert_reqs': None,
-        },
     }
 }
 
