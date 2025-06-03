@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const puzzleTitle = document.getElementById('puzzle-title');
     const importDialog = document.getElementById('import-dialog');
     const importDialogCancelButton = document.getElementById('import-cancel');
+    const cancelPuzzGenButton = document.getElementById('cancel-puzzle-gen');
     const modes = {
         DIGIT: 'digit',
         CORNER: 'corner',
@@ -99,6 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var originalDragTarget;
     var activeGame;
     var puzzleHistory;
+    var puzzGenTimeout;
 
     function setupGame() {
         checkLocalStorage();
@@ -110,6 +112,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
             puzzleTitle.innerHTML = 'Generating new puzzle...';
+            cancelPuzzGenButton.style.display = 'block';
+            toggleBoardGlow(true);
+            clearGrid();
             checkPuzzleGenerationStatus();
         } else if(game.dataset.puzzleImportError === 'True') {
             displayErrorMessage(errors.SERVER_ERROR);
@@ -268,32 +273,64 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function toggleBoardGlow(glowOn) {
+        var glowTypes = ['a', 'b', 'c', 'd'];
+        if(glowOn) {
+            var glowType = 0;
+            for(const cell of cells) {
+                const cellBackground = cell.getElementsByClassName('cell-background')[0];
+                cellBackground.classList.add('glowing-cell-'+glowTypes[glowType]);
+                glowType++;
+                if(glowType === glowTypes.length) {
+                    glowType = 0;
+                }
+            }
+        } else {
+            for(const cell of cells) {
+                const cellBackground = cell.getElementsByClassName('cell-background')[0];
+                for(var i = 0; i < glowTypes.length; i++) {
+                    cellBackground.classList.remove('glowing-cell-'+glowTypes[i]);
+                }
+            }
+        }
+    }
+
     function checkPuzzleGenerationStatus() {
         const jobID = game.dataset.puzzleJobId;
         fetch('/play/puzzle_status/' + jobID)
             .then(response => response.json())
             .then(data => {
             if (data.status !== 'finished' && data.status !== 'failed') {
-                setTimeout(checkPuzzleGenerationStatus, 300);
+                puzzGenTimeout = setTimeout(checkPuzzleGenerationStatus, 300);
             } else if(data.status === 'finished') {
+                toggleBoardGlow(false);
                 localStorage.setItem('puzzleData', data.result.split('').join(','));
                 localStorage.removeItem('puzzleHistory');
                 localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
                 puzzleTitle.innerHTML = game.dataset.puzzleTitle;
+                cancelPuzzGenButton.style.display = 'none';
                 checkLocalStorage();
             } else {
-                var puzzleTitleText = localStorage.getItem('puzzleTitle');
-                if(puzzleTitleText != null) {
-                    puzzleTitle.innerHTML = puzzleTitleText;
-                } else {
-                    puzzleTitle.innerHTML = '';
-                }
+                cancelPuzzleGeneration();
                 displayErrorMessage(errors.SERVER_ERROR);
             }
         });
     }
 
-    function checkLocalStorage() {
+    function cancelPuzzleGeneration() {
+        clearTimeout(puzzGenTimeout);
+        var puzzleTitleText = localStorage.getItem('puzzleTitle');
+        if(puzzleTitleText != null) {
+            puzzleTitle.innerHTML = puzzleTitleText;
+        } else {
+            puzzleTitle.innerHTML = '';
+        }
+        cancelPuzzGenButton.style.display = 'none';
+        toggleBoardGlow(false);
+        buildExistingPuzzle();
+    }
+
+    function buildExistingPuzzle() {
         const puzzleData = localStorage.getItem('puzzleData');
         if(puzzleData != null) {
             clearGrid();
@@ -306,6 +343,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
+    }
+
+    function checkLocalStorage() {
+        buildExistingPuzzle();
         puzzleHistory = localStorage.getItem('puzzleHistory');
         if(puzzleHistory != null) {
             puzzleHistory = JSON.parse(decryptString(puzzleHistory));
@@ -399,6 +440,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         importDialogCancelButton.addEventListener('click', function(event) {
             importDialog.close();
+        });
+
+        cancelPuzzGenButton.addEventListener('click', function(event) {
+            cancelPuzzleGeneration();
         });
     }
 
@@ -1735,11 +1780,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <img src="{% static 'img/site-logo.svg' %}" class="site-logo">
         </a>
         <span id="puzzle-title"></span>
+        <a href="#" id="cancel-puzzle-gen" class="game-control" style="background: url({% static 'img/cancel-button.svg' %}) 50% 45% no-repeat; width: 130px; display: none; position: absolute; left: 420px; top: -10px; height: 50px;"></a>
     </div>
     <svg width="762" height="762" viewBox="0 0 762 762" fill="none" id="game-grid" xmlns="http://www.w3.org/2000/svg">
     <rect x="11" y="11" width="740" height="740" fill="#285C77" id="grid-background"/>
     <g class="cell" id="cell-0">
-        <rect x="11.5" y="11.5" width="79" height="79" class="cell-background" stroke="#6D6D6D"/>
+        <rect x="11.5" y="11.5" width="79" height="79" class="cell-background"/>
     </g>
     <g class="cell" id="cell-1">
         <rect class="cell-background" x="91.5" y="11.5" width="79" height="79"/>

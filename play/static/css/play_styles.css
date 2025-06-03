@@ -69,6 +69,95 @@
     height: 75px;
 }
 
+#game-grid g rect.glowing-cell-a {
+    animation: bgColor1 5s infinite linear;
+    opacity: 0.25;
+}
+
+#game-grid g rect.glowing-cell-b {
+    animation: bgColor2 5s infinite linear;
+    opacity: 0.25;
+}
+
+#game-grid g rect.glowing-cell-c {
+    animation: bgColor3 5s infinite linear;
+    opacity: 0.25;
+}
+
+#game-grid g rect.glowing-cell-d {
+    animation: bgColor4 5s infinite linear;
+    opacity: 0.25;
+}
+
+@keyframes bgColor1 {
+    20% {
+        fill: #FF5353;
+    }
+    40% {
+        fill: #FFFF53;
+    }
+    60% {
+        fill: #1BACCD;
+    }
+    80% {
+        fill: #651BCD;
+    }
+    100% {
+        fill: #050A1C;
+    }
+}
+@keyframes bgColor2 {
+    20% {
+        fill: #651BCD;
+    }
+    40% {
+        fill: #1BACCD;
+    }
+    60% {
+        fill: #FFFF53;
+    }
+    80% {
+        fill: #FF5353;
+    }
+    100% {
+        fill: #050A1C;
+    }
+}
+@keyframes bgColor3 {
+    20% {
+        fill: #1BACCD;
+    }
+    40% {
+        fill: #651BCD;
+    }
+    60% {
+        fill: #FF5353;
+    }
+    80% {
+        fill: #FFFF53;
+    }
+    100% {
+        fill: #050A1C;
+    }
+}
+@keyframes bgColor4 {
+    20% {
+        fill: #FFFF53;
+    }
+    40% {
+        fill: #FF5353;
+    }
+    60% {
+        fill: #651BCD;
+    }
+    80% {
+        fill: #1BACCD;
+    }
+    100% {
+        fill: #050A1C;
+    }
+}
+
 #game-grid g text.middle-marks {
     fill: #61C9FF;
     font-size: 1.5em
