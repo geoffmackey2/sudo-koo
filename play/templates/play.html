@@ -1769,7 +1769,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     setupGame();
-    if(!activeGame) {
+    if(!activeGame && (game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True')) {
         displayHappyMessage(happyMessages.STARTING_TIP);
     }
 });
