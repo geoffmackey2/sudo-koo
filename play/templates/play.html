@@ -326,26 +326,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function grid_is_empty() {
-        for(const cell of cells) {
-            if(cell.getElementsByClassName('given-digit').length === 0) {
-                if(cell.getElementsByClassName('placed-digit').length > 0) {
-                    return false;
-                }
-                if(cell.getElementsByClassName('middle-marks').length > 0) {
-                    return false;
-                }
-                if(cell.getElementsByClassName('corner-mark').length > 0) {
-                    return false;
-                }
-                if(cell.getElementsByClassName('color-segment').length > 0) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
     function placeGivenDigit(digit) {
         const cellGivenDigits = lastCellSelection.getElementsByClassName('given-digit');
         const cellBackground = lastCellSelection.getElementsByClassName('cell-background')[0];
