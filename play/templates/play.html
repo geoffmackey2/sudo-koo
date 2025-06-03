@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
             if (data.status !== 'finished' && data.status !== 'failed') {
-                setTimeout(checkPuzzleGenerationStatus, 1000);
+                setTimeout(checkPuzzleGenerationStatus, 300);
             } else {
                 localStorage.setItem('puzzleData', data.result.split('').join(','));
                 localStorage.removeItem('puzzleHistory');
