@@ -83,20 +83,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'sudokoo.wsgi.application'
 
-RQ_QUEUES = {
-    'default': {
-        'URL': os.getenv('REDIS_URL') + '?ssl_cert_reqs=none',
-        'DEFAULT_TIMEOUT': 500,
-    },
-    'high': {
-        'URL': os.getenv('REDIS_URL') + '?ssl_cert_reqs=none',
-        'DEFAULT_TIMEOUT': 500,
-    },
-    'low': {
-        'URL': os.getenv('REDIS_URL') + '?ssl_cert_reqs=none',
-        'DEFAULT_TIMEOUT': 500,
+if not DEBUG:
+    RQ_QUEUES = {
+        'default': {
+            'URL': os.getenv('REDIS_URL') + '?ssl_cert_reqs=none',
+            'DEFAULT_TIMEOUT': 500,
+        },
+        'high': {
+            'URL': os.getenv('REDIS_URL') + '?ssl_cert_reqs=none',
+            'DEFAULT_TIMEOUT': 500,
+        },
+        'low': {
+            'URL': os.getenv('REDIS_URL') + '?ssl_cert_reqs=none',
+            'DEFAULT_TIMEOUT': 500,
+        },
     }
-}
+else:
+    RQ_QUEUES = {
+        'default': {
+            'HOST': '127.0.0.1',
+            'PORT': 6379,
+            'DB': 0,
+        },
+    }
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

@@ -266,11 +266,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateCurrentMode(previousMode);
             }
         });
-
-        window.onbeforeunload = function(event) {
-            puzzleHistory['clearedBoard'] = grid_is_empty();
-            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
-        }
     }
 
     function checkPuzzleGenerationStatus() {
@@ -280,12 +275,20 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
             if (data.status !== 'finished' && data.status !== 'failed') {
                 setTimeout(checkPuzzleGenerationStatus, 300);
-            } else {
+            } else if(data.status === 'finished') {
                 localStorage.setItem('puzzleData', data.result.split('').join(','));
                 localStorage.removeItem('puzzleHistory');
                 localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
                 puzzleTitle.innerHTML = game.dataset.puzzleTitle;
                 checkLocalStorage();
+            } else {
+                var puzzleTitleText = localStorage.getItem('puzzleTitle');
+                if(puzzleTitleText != null) {
+                    puzzleTitle.innerHTML = puzzleTitleText;
+                } else {
+                    puzzleTitle.innerHTML = '';
+                }
+                displayErrorMessage(errors.SERVER_ERROR);
             }
         });
     }
@@ -306,9 +309,10 @@ document.addEventListener('DOMContentLoaded', function() {
         puzzleHistory = localStorage.getItem('puzzleHistory');
         if(puzzleHistory != null) {
             puzzleHistory = JSON.parse(decryptString(puzzleHistory));
-            lastHistoryIndex = parseInt(puzzleHistory['lastHistoryIndex']);
+            var lastHistoryIndex = puzzleHistory['lastHistoryIndex'];
             if(lastHistoryIndex > -1) {
-                for(var i = 0; i < lastHistoryIndex; i++) {
+                puzzleHistory['lastHistoryIndex'] = -1;
+                for(var i = 0; i <= lastHistoryIndex; i++) {
                     stepThroughHistory(stepDirection.FORWARD);
                 }
                 deselectAll();
@@ -316,8 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             puzzleHistory = {
                 actions: [],
-                lastHistoryIndex: -1,
-                clearedBoard: false
+                lastHistoryIndex: -1
             };
             localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         }
