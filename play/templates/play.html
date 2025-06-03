@@ -293,6 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function checkLocalStorage() {
         const puzzleData = localStorage.getItem('puzzleData');
         if(puzzleData != null) {
+            clearGrid();
             activeGame = true;
             gameState = puzzleData.split(',');
             for(var i = 0; i < cells.length; i++) {
