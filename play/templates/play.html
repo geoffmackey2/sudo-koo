@@ -111,10 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
         puzzleTitle.innerHTML = currentPuzzleTitle;
         
         if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
-            puzzleTitle.innerHTML = 'Generating new puzzle...';
-            cancelPuzzGenButton.style.display = 'block';
-            toggleBoardGlow(true);
-            clearGrid();
+            toggleGeneratingPuzzleMode(true)
             checkPuzzleGenerationStatus();
         } else if(game.dataset.puzzleImportError === 'True') {
             displayErrorMessage(errors.SERVER_ERROR);
@@ -273,6 +270,43 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function toggleGeneratingPuzzleMode(generating) {
+        if(generating) {
+            puzzleTitle.innerHTML = 'Generating new puzzle...';
+            cancelPuzzGenButton.style.display = 'block';
+            createButton.style.opacity = '0.25';
+            createButton.style.pointerEvents = 'none';
+            importButton.style.opacity = '0.25';
+            importButton.style.pointerEvents = 'none';
+            digitControl.style.pointerEvents = 'none';
+            digitControl.style.opacity = '0.25';
+            cornerControl.style.pointerEvents = 'none';
+            cornerControl.style.opacity = '0.25';
+            middleControl.style.pointerEvents = 'none';
+            middleControl.style.opacity = '0.25';
+            colorControl.style.pointerEvents = 'none';
+            colorControl.style.opacity = '0.25';
+            toggleBoardGlow(true);
+            clearGrid();
+        } else {
+            toggleBoardGlow(false);
+            puzzleTitle.innerHTML = game.dataset.puzzleTitle;
+            cancelPuzzGenButton.style.display = 'none';
+            createButton.style.opacity = '1';
+            createButton.style.pointerEvents = 'auto';
+            importButton.style.opacity = '1';
+            importButton.style.pointerEvents = 'auto';
+            digitControl.style.pointerEvents = 'auto';
+            digitControl.style.opacity = '1';
+            cornerControl.style.pointerEvents = 'auto';
+            cornerControl.style.opacity = '1';
+            middleControl.style.pointerEvents = 'auto';
+            middleControl.style.opacity = '1';
+            colorControl.style.pointerEvents = 'auto';
+            colorControl.style.opacity = '1';
+        }
+    }
+
     function toggleBoardGlow(glowOn) {
         var glowTypes = ['a', 'b', 'c', 'd'];
         if(glowOn) {
@@ -303,12 +337,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status !== 'finished' && data.status !== 'failed') {
                 puzzGenTimeout = setTimeout(checkPuzzleGenerationStatus, 300);
             } else if(data.status === 'finished') {
-                toggleBoardGlow(false);
                 localStorage.setItem('puzzleData', data.result.split('').join(','));
                 localStorage.removeItem('puzzleHistory');
                 localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
-                puzzleTitle.innerHTML = game.dataset.puzzleTitle;
-                cancelPuzzGenButton.style.display = 'none';
+                toggleGeneratingPuzzleMode(false);
                 checkLocalStorage();
             } else {
                 cancelPuzzleGeneration();
@@ -443,6 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         cancelPuzzGenButton.addEventListener('click', function(event) {
+            toggleGeneratingPuzzleMode(false);
             cancelPuzzleGeneration();
         });
     }
@@ -1780,7 +1813,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <img src="{% static 'img/site-logo.svg' %}" class="site-logo">
         </a>
         <span id="puzzle-title"></span>
-        <a href="#" id="cancel-puzzle-gen" class="game-control" style="background: url({% static 'img/cancel-button.svg' %}) 50% 45% no-repeat; width: 130px; display: none; position: absolute; left: 420px; top: -10px; height: 50px;"></a>
+        <a href="#" id="cancel-puzzle-gen" class="game-control button">cancel</a>
     </div>
     <svg width="762" height="762" viewBox="0 0 762 762" fill="none" id="game-grid" xmlns="http://www.w3.org/2000/svg">
     <rect x="11" y="11" width="740" height="740" fill="#285C77" id="grid-background"/>
@@ -2055,10 +2088,10 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="#" id="corner-control" class="game-control" style="background: url({% static 'img/corner-control.svg' %}) center bottom no-repeat;"></a>
         <a href="#" id="middle-control" class="game-control" style="background: url({% static 'img/middle-control.svg' %}) center bottom no-repeat;"></a>
         <a href="#" id="color-control" class="game-control" style="background: url({% static 'img/color-control.svg' %}) center no-repeat;"></a>
-        <a href="#" id="create-button" class="game-control" style="background: url({% static 'img/create-button.svg' %}) 50% 48% no-repeat; width: 130px;"></a>
-        <a href="#" id="import-button" class="game-control" style="background: url({% static 'img/import-button.svg' %}) 50% 53% no-repeat; width: 130px;"></a>
-        <a href="#" id="play-button" class="game-control" style="background: url({% static 'img/play-button.svg' %}) center no-repeat; width: 130px; display: none;"></a>
-        <a href="#" id="cancel-button" class="game-control" style="background: url({% static 'img/cancel-button.svg' %}) 50% 45% no-repeat; width: 130px; display: none;"></a>
+         <a href="#" id="create-button" class="game-control button">create</a>
+        <a href="#" id="import-button" class="game-control button">load</a>
+        <a href="#" id="play-button" class="game-control button primary">play</a>
+        <a href="#" id="cancel-button" class="game-control button">cancel</a>
     </div>
 </div>
 {% endblock content %}
