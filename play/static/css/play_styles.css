@@ -196,6 +196,12 @@ a.game-control {
     margin-top: 20px;
     height: 75px;
     width: 75px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+a#corner-control, a#middle-control {
+    background-position: center bottom;
 }
 
 a.game-control.button {
@@ -299,29 +305,25 @@ dialog:open {
   opacity: 1;
 }
 
-dialog button.dialog-secondary {
+dialog button {
     display: inline-block;
     font-size: 1.2em;
     font-weight: 300;
     text-decoration: none;
-    border: 2px solid #61C9FF;
     border-radius: 5px;
     padding: 12px 26px;
-    background-color: #FFFFFF;
     cursor: pointer;
 }
 
-dialog button.dialog-primary {
-    display: inline-block;
-    font-size: 1.2em;
-    font-weight: 300;
-    text-decoration: none;
+dialog button.secondary {
+    border: 2px solid #61C9FF;
+    background-color: #FFFFFF;
+}
+
+dialog button.primary {
     border: 2px solid #050A1C;
     background-color: #050A1C;
-    border-radius: 5px;
-    padding: 12px 26px;
     color: white;
-    cursor: pointer;
 }
 
 dialog {
@@ -367,4 +369,23 @@ div.dialog-controls {
 
 #puzzles-select {
     margin-left: 4px;
+}
+
+#puzzle-timer-duration {
+    position: absolute;
+    left: 655px;
+    top: 31px;
+    font-size: 2em;
+}
+
+#puzzle-timer-play-button {
+    width: 28px;
+    height: 28px;
+    display: block;
+    position: absolute;
+    left: 720px;
+    top: 36px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }

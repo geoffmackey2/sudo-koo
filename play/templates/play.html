@@ -1808,6 +1808,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </a>
         <span id="puzzle-title"></span>
         <a href="#" id="cancel-puzzle-gen" class="game-control button">cancel</a>
+        <span id="puzzle-timer-duration">0:00</span><a href="#" id="puzzle-timer-play-button" style="background-image: url({% static 'img/play-button.svg' %});"></a>
     </div>
     <svg width="762" height="762" viewBox="0 0 762 762" fill="none" id="game-grid" xmlns="http://www.w3.org/2000/svg">
     <rect x="11" y="11" width="740" height="740" fill="#285C77" id="grid-background"/>
@@ -2072,16 +2073,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 </select>
             </p>
             <div class="dialog-controls">
-                <button id="import-cancel" class="dialog-secondary" type="reset">Cancel</button>
-                <button id="import-submit" class="dialog-primary" type="submit">Import</button>
+                <button id="import-cancel" class="secondary" type="reset">Cancel</button>
+                <button id="import-submit" class="primary" type="submit">Import</button>
             </div>
         </form>
     </dialog>
     <div id="game-controls">
-        <a href="#" id="digit-control" class="game-control selected" style="background: url({% static 'img/digit-control.svg' %}) center no-repeat;"></a>
-        <a href="#" id="corner-control" class="game-control" style="background: url({% static 'img/corner-control.svg' %}) center bottom no-repeat;"></a>
-        <a href="#" id="middle-control" class="game-control" style="background: url({% static 'img/middle-control.svg' %}) center bottom no-repeat;"></a>
-        <a href="#" id="color-control" class="game-control" style="background: url({% static 'img/color-control.svg' %}) center no-repeat;"></a>
+        <a href="#" id="digit-control" class="game-control selected" style="background-image: url({% static 'img/digit-control.svg' %});"></a>
+        <a href="#" id="corner-control" class="game-control" style="background-image: url({% static 'img/corner-control.svg' %});"></a>
+        <a href="#" id="middle-control" class="game-control" style="background-image: url({% static 'img/middle-control.svg' %});"></a>
+        <a href="#" id="color-control" class="game-control" style="background-image: url({% static 'img/color-control.svg' %});"></a>
          <a href="#" id="create-button" class="game-control button">Create</a>
         <a href="#" id="import-button" class="game-control button">Import</a>
         <a href="#" id="play-button" class="game-control button primary">Play</a>
