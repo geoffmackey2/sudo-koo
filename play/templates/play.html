@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const importDialog = document.getElementById('import-dialog');
     const importDialogCancelButton = document.getElementById('import-cancel');
     const cancelPuzzGenButton = document.getElementById('cancel-puzzle-gen');
+    const puzzleTimerPlayButton = document.getElementById('puzzle-timer-play-button');
+    const puzzleTimerPauseButton = document.getElementById('puzzle-timer-pause-button');
+    const puzzleTimerDuration = document.getElementById('puzzle-timer-duration');
     const modes = {
         DIGIT: 'digit',
         CORNER: 'corner',
@@ -93,6 +96,8 @@ document.addEventListener('DOMContentLoaded', function() {
         FORWARD: 'forward'
     }
     const boxes = setupBoxes();
+    var gameTimer = setupTimer();
+    var gameDuration = 0;
     var gameState = [];
     var lastCellSelection;
     var currentMode = modes.DIGIT;
@@ -268,6 +273,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateCurrentMode(previousMode);
             }
         });
+
+        pauseTimer();
+    }
+
+    function pauseTimer() {
+        clearInterval(gameTimer);
+        gameTimer = null;
+    }
+
+    function startTimer() {
+        if(!gameTimer) {
+            gameTimer = setupTimer();
+        }
+    }
+
+    function restartTimer() {
+        pauseTimer();
+        gameDuration = 0;
+        puzzleTimerDuration.textContent = '00:00';
+        startTimer();
+    }
+
+    function setupTimer() {
+        return setInterval(updateTimer, 1000);
+    }
+
+    function updateTimer() {
+        gameDuration++;
+        const hours = Math.floor(gameDuration / 3600);
+        const minutes = Math.floor((gameDuration % 3600) / 60);
+        const seconds = gameDuration % 60;
+        
+        if(hours > 0) {
+            puzzleTimerDuration.classList.add('hours');
+            puzzleTimerDuration.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        } else {
+            puzzleTimerDuration.classList.remove('hours');
+            puzzleTimerDuration.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
     }
 
     function toggleGeneratingPuzzleMode(generating) {
@@ -466,7 +510,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         importButton.addEventListener('click', function(event) {
-            event.preventDefault();
             importDialog.showModal();
         });
 
@@ -475,9 +518,33 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         cancelPuzzGenButton.addEventListener('click', function(event) {
+            event.preventDefault();
             toggleGeneratingPuzzleMode(false);
             cancelPuzzleGeneration();
         });
+
+        puzzleTimerPauseButton.style.display = 'none';
+        puzzleTimerPlayButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            toggleTimer(true);
+        });
+
+        puzzleTimerPauseButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            toggleTimer(false);
+        });
+    }
+
+    function toggleTimer(playing) {
+        if(playing) {
+            puzzleTimerPlayButton.style.display = 'none';
+            puzzleTimerPauseButton.style.display = 'block';
+            startTimer();
+        } else {
+            puzzleTimerPlayButton.style.display = 'block';
+            puzzleTimerPauseButton.style.display = 'none';
+            pauseTimer();
+        }
     }
 
     function exitCreateMode() {
@@ -1808,7 +1875,9 @@ document.addEventListener('DOMContentLoaded', function() {
         </a>
         <span id="puzzle-title"></span>
         <a href="#" id="cancel-puzzle-gen" class="game-control button">cancel</a>
-        <span id="puzzle-timer-duration">0:00</span><a href="#" id="puzzle-timer-play-button" style="background-image: url({% static 'img/play-button.svg' %});"></a>
+        <span id="puzzle-timer-duration">00:00</span>
+        <a href="#" id="puzzle-timer-play-button" style="background-image: url({% static 'img/play-button.svg' %});"></a>
+        <a href="#" id="puzzle-timer-pause-button" style="background-image: url({% static 'img/pause-button.svg' %});"></a>
     </div>
     <svg width="762" height="762" viewBox="0 0 762 762" fill="none" id="game-grid" xmlns="http://www.w3.org/2000/svg">
     <rect x="11" y="11" width="740" height="740" fill="#285C77" id="grid-background"/>

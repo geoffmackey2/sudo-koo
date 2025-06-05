@@ -373,12 +373,16 @@ div.dialog-controls {
 
 #puzzle-timer-duration {
     position: absolute;
-    left: 655px;
+    left: 640px;
     top: 31px;
     font-size: 2em;
 }
 
-#puzzle-timer-play-button {
+#puzzle-timer-duration.hours {
+    left: 601px;
+}
+
+#puzzle-timer-play-button, #puzzle-timer-pause-button {
     width: 28px;
     height: 28px;
     display: block;
