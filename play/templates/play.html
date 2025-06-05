@@ -302,7 +302,6 @@ document.addEventListener('DOMContentLoaded', function() {
         puzzleHistory['timerDuration'] = 0;
         localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         puzzleTimerDuration.textContent = formattedDuration(puzzleHistory['timerDuration']);
-        startTimer();
     }
 
     function setupTimer() {
@@ -414,6 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 localStorage.setItem('puzzleTitle', game.dataset.puzzleTitle);
                 toggleGeneratingPuzzleMode(false);
                 checkLocalStorage();
+                restartTimer();
             } else {
                 cancelPuzzleGeneration();
                 displayErrorMessage(errors.SERVER_ERROR);
@@ -616,6 +616,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 puzzleTitle.innerHTML = 'Custom Puzzle';
                 localStorage.removeItem('puzzleHistory');
                 activeGame = true;
+                checkLocalStorage();
+                restartTimer();
                 exitCreateMode();
             } else {
                 displayErrorMessage(errors.INVALID_PUZZLE);
