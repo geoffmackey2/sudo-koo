@@ -242,9 +242,7 @@ a#cancel-button {
 }
 
 #game {
-    position: relative; 
-    left: 0px; 
-    top: 0px;
+    position: absolute;
 }
 
 #error-message {
@@ -281,26 +279,58 @@ a#cancel-button {
 }
 
 #import-dialog h4 {
-    margin: 0 0 20px 0;
+    margin: 0 0 24px 0;
     text-align: left;
-    font-size: 1.4em;
+    font-size: 2.5em;
+}
+
+label[for="generate-puzzles"] {
+    font-size: 1.5em;
 }
 
 #puzzles-select {
-    height: 30px;
-    padding: 0px 4px;
+    height: 50px;
+    padding: 0px 10px;
+    font-size: 1.3em;
+    margin-bottom: 12px;
 }
 
 dialog:open {
   opacity: 1;
 }
 
+dialog button.dialog-secondary {
+    display: inline-block;
+    font-size: 1.2em;
+    font-weight: 300;
+    text-decoration: none;
+    border: 2px solid #61C9FF;
+    border-radius: 5px;
+    padding: 12px 26px;
+    background-color: #FFFFFF;
+    cursor: pointer;
+}
+
+dialog button.dialog-primary {
+    display: inline-block;
+    font-size: 1.2em;
+    font-weight: 300;
+    text-decoration: none;
+    border: 2px solid #050A1C;
+    background-color: #050A1C;
+    border-radius: 5px;
+    padding: 12px 26px;
+    color: white;
+    cursor: pointer;
+}
+
 dialog {
-  opacity: 0;
-  transition:
+    opacity: 0;
+    transition:
     opacity 0.3s ease-out,
     overlay 0.3s ease-out allow-discrete,
     display 0.3s ease-out allow-discrete;
+    padding: 24px;
 }
 
 @starting-style {

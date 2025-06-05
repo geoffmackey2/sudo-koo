@@ -1779,13 +1779,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const scaleX = windowWidth / 1000;
         const scaleY = windowHeight / 1000;
         const scale = Math.min(scaleX, scaleY);
-            game.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
-            game.style.left = game.getBoundingClientRect().width / 2 - 5 + 'px';
-            game.style.top = game.getBoundingClientRect().height / 2 - 5 + 'px';
+        game.style.transform = 'scale(' + scale + ')';
     }
-
-    window.addEventListener('resize', resizeGrid, true);
-    resizeGrid();
 
     function encryptString(text) {
         if(text != null) return btoa(text);
@@ -1797,14 +1792,13 @@ document.addEventListener('DOMContentLoaded', function() {
         return '{}';
     }
 
-    if (window.history.replaceState) {
-        window.history.replaceState(null, null, window.location.href);
-    }
-
     setupGame();
     if(!activeGame && (game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True')) {
         displayHappyMessage(happyMessages.STARTING_TIP);
     }
+
+    window.addEventListener('resize', resizeGrid, true);
+    resizeGrid();
 });
 </script>
 <div id="game" data-imported-puzzle="{{ imported_puzzle }}" data-puzzle-job-id="{{ job_id }}" data-puzzle-title="{{ puzzle_title }}" data-puzzle-import-error="{{ import_error }}">
@@ -2078,8 +2072,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 </select>
             </p>
             <div class="dialog-controls">
-                <button id="import-cancel" type="reset">Cancel</button>
-                <button id="import-submit" type="submit">Import</button>
+                <button id="import-cancel" class="dialog-secondary" type="reset">Cancel</button>
+                <button id="import-submit" class="dialog-primary" type="submit">Import</button>
             </div>
         </form>
     </dialog>
@@ -2088,10 +2082,10 @@ document.addEventListener('DOMContentLoaded', function() {
         <a href="#" id="corner-control" class="game-control" style="background: url({% static 'img/corner-control.svg' %}) center bottom no-repeat;"></a>
         <a href="#" id="middle-control" class="game-control" style="background: url({% static 'img/middle-control.svg' %}) center bottom no-repeat;"></a>
         <a href="#" id="color-control" class="game-control" style="background: url({% static 'img/color-control.svg' %}) center no-repeat;"></a>
-         <a href="#" id="create-button" class="game-control button">create</a>
-        <a href="#" id="import-button" class="game-control button">load</a>
-        <a href="#" id="play-button" class="game-control button primary">play</a>
-        <a href="#" id="cancel-button" class="game-control button">cancel</a>
+         <a href="#" id="create-button" class="game-control button">Create</a>
+        <a href="#" id="import-button" class="game-control button">Import</a>
+        <a href="#" id="play-button" class="game-control button primary">Play</a>
+        <a href="#" id="cancel-button" class="game-control button">Cancel</a>
     </div>
 </div>
 {% endblock content %}

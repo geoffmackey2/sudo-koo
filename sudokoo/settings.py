@@ -162,18 +162,19 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
-STORAGES = {
-    "staticfiles": {
-        "BACKEND": "storages.backends.s3.S3Storage",
-        "OPTIONS": {
-            "bucket_name": os.environ.get('AWS_STORAGE_BUCKET_NAME'),
-            "access_key": os.environ.get('AWS_ACCESS_KEY_ID'),
-            "secret_key": os.environ.get('AWS_SECRET_ACCESS_KEY'),
-            "signature_version": "s3v4",
-            "region_name": "us-east-2",
+if not DEBUG:
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": os.environ.get('AWS_STORAGE_BUCKET_NAME'),
+                "access_key": os.environ.get('AWS_ACCESS_KEY_ID'),
+                "secret_key": os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                "signature_version": "s3v4",
+                "region_name": "us-east-2",
+                },
         },
-    },
-}
+    }
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
