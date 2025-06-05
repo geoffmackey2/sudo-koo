@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const puzzleTimerPlayButton = document.getElementById('puzzle-timer-play-button');
     const puzzleTimerPauseButton = document.getElementById('puzzle-timer-pause-button');
     const puzzleTimerDuration = document.getElementById('puzzle-timer-duration');
+    const puzzleTimer = document.getElementById('puzzle-timer');
     const modes = {
         DIGIT: 'digit',
         CORNER: 'corner',
@@ -357,6 +358,8 @@ document.addEventListener('DOMContentLoaded', function() {
             middleControl.style.opacity = '0.25';
             colorControl.style.pointerEvents = 'none';
             colorControl.style.opacity = '0.25';
+            puzzleTimer.style.pointerEvents = 'none';
+            puzzleTimer.style.opacity = '0.25';
             toggleBoardGlow(true);
             clearGrid();
         } else {
@@ -375,6 +378,8 @@ document.addEventListener('DOMContentLoaded', function() {
             middleControl.style.opacity = '1';
             colorControl.style.pointerEvents = 'auto';
             colorControl.style.opacity = '1';
+            puzzleTimer.style.pointerEvents = 'auto';
+            puzzleTimer.style.opacity = '1';
         }
     }
 
@@ -587,6 +592,8 @@ document.addEventListener('DOMContentLoaded', function() {
         colorControl.style.pointerEvents = 'auto';
         colorControl.style.opacity = '1';
         puzzleTitle.style.display = 'block';
+        puzzleTimer.style.pointerEvents = 'auto';
+        puzzleTimer.style.opacity = '1';
         if(!activeGame) {
             clearGrid();
         }
@@ -1061,6 +1068,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 middleControl.style.opacity = '0.25';
                 colorControl.style.opacity = '0.25'
                 puzzleTitle.style.display = 'none';
+                puzzleTimer.style.pointerEvents = 'none';
+                puzzleTimer.style.opacity = '0.25';
                 break;
         }
     }
@@ -1903,9 +1912,11 @@ document.addEventListener('DOMContentLoaded', function() {
         </a>
         <span id="puzzle-title"></span>
         <a href="#" id="cancel-puzzle-gen" class="game-control button">cancel</a>
-        <span id="puzzle-timer-duration">00:00</span>
-        <a href="#" id="puzzle-timer-play-button" style="background-image: url({% static 'img/play-button.svg' %});"></a>
-        <a href="#" id="puzzle-timer-pause-button" style="background-image: url({% static 'img/pause-button.svg' %});"></a>
+        <div id="puzzle-timer">
+            <span id="puzzle-timer-duration">00:00</span>
+            <a href="#" id="puzzle-timer-play-button" style="background-image: url({% static 'img/play-button.svg' %});"></a>
+            <a href="#" id="puzzle-timer-pause-button" style="background-image: url({% static 'img/pause-button.svg' %});"></a>
+        </div>
     </div>
     <svg width="762" height="762" viewBox="0 0 762 762" fill="none" id="game-grid" xmlns="http://www.w3.org/2000/svg">
     <rect x="11" y="11" width="740" height="740" fill="#285C77" id="grid-background"/>
