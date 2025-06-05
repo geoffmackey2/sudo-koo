@@ -96,8 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
         FORWARD: 'forward'
     }
     const boxes = setupBoxes();
-    var gameTimer = setupTimer();
-    var gameDuration = 0;
+    var gameTimer;
     var gameState = [];
     var lastCellSelection;
     var currentMode = modes.DIGIT;
@@ -109,6 +108,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setupGame() {
         checkLocalStorage();
+        gameTimer = setupTimer();
+        if(puzzleHistory['timerDuration'] === 0 || puzzleHistory['timerPaused'] === true) {
+            pauseTimer();
+        }
         var currentPuzzleTitle = '';
         if(localStorage.getItem('puzzleTitle') != null) {
             currentPuzzleTitle = localStorage.getItem('puzzleTitle');
@@ -273,45 +276,70 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateCurrentMode(previousMode);
             }
         });
-
-        pauseTimer();
     }
 
     function pauseTimer() {
         clearInterval(gameTimer);
         gameTimer = null;
+        puzzleTimerPlayButton.style.display = 'block';
+        puzzleTimerPauseButton.style.display = 'none';
+        puzzleHistory['timerPaused'] = true;
+        localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
     }
 
     function startTimer() {
         if(!gameTimer) {
             gameTimer = setupTimer();
+            puzzleTimerPlayButton.style.display = 'none';
+            puzzleTimerPauseButton.style.display = 'block';
+            puzzleHistory['timerPaused'] = false;
+            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         }
     }
 
     function restartTimer() {
         pauseTimer();
-        gameDuration = 0;
-        puzzleTimerDuration.textContent = '00:00';
+        puzzleHistory['timerDuration'] = 0;
+        localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+        puzzleTimerDuration.textContent = formattedDuration(puzzleHistory['timerDuration']);
         startTimer();
     }
 
     function setupTimer() {
+        if(puzzleHistory['timerDuration'] > 0) {
+            puzzleTimerPlayButton.style.display = 'none';
+            puzzleTimerPauseButton.style.display = 'block';
+        }
         return setInterval(updateTimer, 1000);
     }
 
-    function updateTimer() {
-        gameDuration++;
-        const hours = Math.floor(gameDuration / 3600);
-        const minutes = Math.floor((gameDuration % 3600) / 60);
-        const seconds = gameDuration % 60;
-        
+    function formattedDuration(duration) {
+        const hours = Math.floor(duration / 3600);
+        const minutes = Math.floor((duration % 3600) / 60);
+        const seconds = duration % 60;
+
+        if(hours > 0) {
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        } else {
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+    }
+
+    function updateTimerDisplay() {
+        const hours = Math.floor(puzzleHistory['timerDuration'] / 3600);
         if(hours > 0) {
             puzzleTimerDuration.classList.add('hours');
-            puzzleTimerDuration.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            puzzleTimerDuration.textContent = formattedDuration(puzzleHistory['timerDuration']);
         } else {
             puzzleTimerDuration.classList.remove('hours');
-            puzzleTimerDuration.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            puzzleTimerDuration.textContent = formattedDuration(puzzleHistory['timerDuration']);
         }
+    }
+
+    function updateTimer() {
+        puzzleHistory['timerDuration']++;
+        localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));      
+        updateTimerDisplay();
     }
 
     function toggleGeneratingPuzzleMode(generating) {
@@ -434,10 +462,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 deselectAll();
             }
+            updateTimerDisplay();
         } else {
             puzzleHistory = {
                 actions: [],
-                lastHistoryIndex: -1
+                lastHistoryIndex: -1,
+                timerDuration: 0,
+                timerPaused: false
             };
             localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         }
@@ -523,7 +554,6 @@ document.addEventListener('DOMContentLoaded', function() {
             cancelPuzzleGeneration();
         });
 
-        puzzleTimerPauseButton.style.display = 'none';
         puzzleTimerPlayButton.addEventListener('click', function(event) {
             event.preventDefault();
             toggleTimer(true);
@@ -537,12 +567,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function toggleTimer(playing) {
         if(playing) {
-            puzzleTimerPlayButton.style.display = 'none';
-            puzzleTimerPauseButton.style.display = 'block';
             startTimer();
         } else {
-            puzzleTimerPlayButton.style.display = 'block';
-            puzzleTimerPauseButton.style.display = 'none';
             pauseTimer();
         }
     }
