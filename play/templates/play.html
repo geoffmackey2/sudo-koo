@@ -31,6 +31,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const puzzleTimerPauseButton = document.getElementById('puzzle-timer-pause-button');
     const puzzleTimerDuration = document.getElementById('puzzle-timer-duration');
     const puzzleTimer = document.getElementById('puzzle-timer');
+    const interruptOverlay = document.getElementById('game-interrupted');
+    const restartButton = document.getElementById('restart-button');
+    const continueButton = document.getElementById('continue-button');
+    const interruptionMessage = document.getElementById('interruption-message');
     const modes = {
         DIGIT: 'digit',
         CORNER: 'corner',
@@ -106,6 +110,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var activeGame;
     var puzzleHistory;
     var puzzGenTimeout;
+    var gameInterrupted = false;
+    var generatingPuzzle = false;
 
     function setupGame() {
         checkLocalStorage();
@@ -131,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var keyPressed = false;
 
         document.addEventListener("pointerdown", function (event) {
-            if(!importDialog.open) {
+            if(!importDialog.open && !gameInterrupted && !generatingPuzzle) {
                 event.preventDefault();
                 const pointerX = event.pageX + window.scrollX;
                 const pointerY = event.pageY + window.scrollY;
@@ -277,15 +283,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateCurrentMode(previousMode);
             }
         });
+
+        window.addEventListener('resize', resizeGrid, true);
+        resizeGrid();
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        if(puzzleHistory['gameOver']) {
+            gameOver();
+        }
     }
 
-    function pauseTimer() {
+    function toggleGameInterrupted(interrupted) {
+        var overlayShowing = interrupted ? 'block' : 'none';
+        interruptOverlay.style.display = overlayShowing;
+        gameInterrupted = interrupted;
+        toggleDisableControls(interrupted, true);
+    }
+
+    function pauseTimer(newGame, gameEnded) {
         clearInterval(gameTimer);
         gameTimer = null;
         puzzleTimerPlayButton.style.display = 'block';
         puzzleTimerPauseButton.style.display = 'none';
         puzzleHistory['timerPaused'] = true;
         localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+        if(newGame) {
+            interruptionMessage.textContent = 'Puzzle ready. Let\'s go!';
+            continueButton.textContent = 'Play';
+            restartButton.style.display = 'none';
+        } else if(!gameEnded) {
+            interruptionMessage.textContent = 'Game Paused';
+            continueButton.textContent = 'Continue';
+            restartButton.style.display = 'inline-block';
+        } else {
+            interruptionMessage.textContent = 'Great job, you did it!';
+            continueButton.textContent = 'Review';
+        }
+        toggleGameInterrupted(true);
     }
 
     function startTimer() {
@@ -295,14 +329,21 @@ document.addEventListener('DOMContentLoaded', function() {
             puzzleTimerPauseButton.style.display = 'block';
             puzzleHistory['timerPaused'] = false;
             localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+            toggleGameInterrupted(false);
         }
     }
 
     function restartTimer() {
-        pauseTimer();
+        clearInterval(gameTimer);
+        gameTimer = null;
+        puzzleTimerPlayButton.style.display = 'none';
+        puzzleTimerPauseButton.style.display = 'block';
         puzzleHistory['timerDuration'] = 0;
+        puzzleHistory['timerPaused'] = false;
         localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
-        puzzleTimerDuration.textContent = formattedDuration(puzzleHistory['timerDuration']);
+        updateTimerDisplay();
+        toggleGameInterrupted(false);
+        gameTimer = setupTimer();
     }
 
     function setupTimer() {
@@ -343,43 +384,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function toggleGeneratingPuzzleMode(generating) {
+        generatingPuzzle = generating;
         if(generating) {
             puzzleTitle.innerHTML = 'Generating new puzzle...';
             cancelPuzzGenButton.style.display = 'block';
-            createButton.style.opacity = '0.25';
-            createButton.style.pointerEvents = 'none';
-            importButton.style.opacity = '0.25';
-            importButton.style.pointerEvents = 'none';
-            digitControl.style.pointerEvents = 'none';
-            digitControl.style.opacity = '0.25';
-            cornerControl.style.pointerEvents = 'none';
-            cornerControl.style.opacity = '0.25';
-            middleControl.style.pointerEvents = 'none';
-            middleControl.style.opacity = '0.25';
-            colorControl.style.pointerEvents = 'none';
-            colorControl.style.opacity = '0.25';
-            puzzleTimer.style.pointerEvents = 'none';
-            puzzleTimer.style.opacity = '0.25';
             toggleBoardGlow(true);
             clearGrid();
+            pauseTimer();
+            toggleGameInterrupted(false);
+            toggleDisableControls(true, true);
         } else {
             toggleBoardGlow(false);
             puzzleTitle.innerHTML = game.dataset.puzzleTitle;
             cancelPuzzGenButton.style.display = 'none';
-            createButton.style.opacity = '1';
-            createButton.style.pointerEvents = 'auto';
-            importButton.style.opacity = '1';
-            importButton.style.pointerEvents = 'auto';
-            digitControl.style.pointerEvents = 'auto';
-            digitControl.style.opacity = '1';
-            cornerControl.style.pointerEvents = 'auto';
-            cornerControl.style.opacity = '1';
-            middleControl.style.pointerEvents = 'auto';
-            middleControl.style.opacity = '1';
-            colorControl.style.pointerEvents = 'auto';
-            colorControl.style.opacity = '1';
-            puzzleTimer.style.pointerEvents = 'auto';
-            puzzleTimer.style.opacity = '1';
+            toggleDisableControls(false, true);
+            buildExistingPuzzle();
+        }
+    }
+
+    function toggleDisableControls(disabled, allControls) {
+        var clickable = disabled ? 'none' : 'auto';
+        var visibility = disabled ? '0.25' : '1';
+
+        digitControl.style.pointerEvents = clickable;
+        digitControl.style.opacity = visibility;
+        cornerControl.style.pointerEvents = clickable;
+        cornerControl.style.opacity = visibility;
+        middleControl.style.pointerEvents = clickable;
+        middleControl.style.opacity = visibility;
+        colorControl.style.pointerEvents = clickable;
+        colorControl.style.opacity = visibility;
+        puzzleTimer.style.pointerEvents = clickable;
+        puzzleTimer.style.opacity = visibility;
+        if(allControls) {
+            createButton.style.opacity = visibility;
+            createButton.style.pointerEvents = clickable;
+            importButton.style.opacity = visibility;
+            importButton.style.pointerEvents = clickable;
         }
     }
 
@@ -419,6 +460,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 toggleGeneratingPuzzleMode(false);
                 checkLocalStorage();
                 restartTimer();
+                pauseTimer(true);
             } else {
                 cancelPuzzleGeneration();
                 displayErrorMessage(errors.SERVER_ERROR);
@@ -428,15 +470,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function cancelPuzzleGeneration() {
         clearTimeout(puzzGenTimeout);
-        var puzzleTitleText = localStorage.getItem('puzzleTitle');
-        if(puzzleTitleText != null) {
-            puzzleTitle.innerHTML = puzzleTitleText;
-        } else {
-            puzzleTitle.innerHTML = '';
-        }
-        cancelPuzzGenButton.style.display = 'none';
-        toggleBoardGlow(false);
-        buildExistingPuzzle();
+        toggleGeneratingPuzzleMode(false);
+        startTimer();
     }
 
     function buildExistingPuzzle() {
@@ -469,14 +504,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             updateTimerDisplay();
         } else {
-            puzzleHistory = {
-                actions: [],
-                lastHistoryIndex: -1,
-                timerDuration: 0,
-                timerPaused: false
-            };
-            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+            createBlankPuzzleHistory();
         }
+    }
+
+    function createBlankPuzzleHistory() {
+        puzzleHistory = {
+            actions: [],
+            lastHistoryIndex: -1,
+            timerDuration: 0,
+            timerPaused: false,
+            gameOver: false
+        };
+        localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
     }
 
     function placeGivenDigit(digit) {
@@ -568,6 +608,23 @@ document.addEventListener('DOMContentLoaded', function() {
             event.preventDefault();
             toggleTimer(false);
         });
+
+        continueButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            toggleGameInterrupted(false);
+            if(!puzzleHistory['gameOver']) {
+                startTimer();
+            }
+        });
+
+        restartButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            restartTimer();
+            toggleGameInterrupted(false);
+            buildExistingPuzzle();
+            localStorage.removeItem('puzzleHistory');
+            createBlankPuzzleHistory();
+        });
     }
 
     function toggleTimer(playing) {
@@ -583,17 +640,8 @@ document.addEventListener('DOMContentLoaded', function() {
         createButton.style.display = 'block';
         cancelButton.style.display = 'none';
         importButton.style.display = 'block'
-        digitControl.style.pointerEvents = 'auto';
-        digitControl.style.opacity = '1';
-        cornerControl.style.pointerEvents = 'auto';
-        cornerControl.style.opacity = '1';
-        middleControl.style.pointerEvents = 'auto';
-        middleControl.style.opacity = '1';
-        colorControl.style.pointerEvents = 'auto';
-        colorControl.style.opacity = '1';
-        puzzleTitle.style.display = 'block';
-        puzzleTimer.style.pointerEvents = 'auto';
-        puzzleTimer.style.opacity = '1';
+        toggleDisableControls(false, false);
+        startTimer();
         if(!activeGame) {
             clearGrid();
         }
@@ -1059,17 +1107,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButton.style.display = 'block';
                 createButton.style.display = 'none';
                 importButton.style.display = 'none';
-                digitControl.style.pointerEvents = 'none';
-                cornerControl.style.pointerEvents = 'none';
-                middleControl.style.pointerEvents = 'none';
-                colorControl.style.pointerEvents = 'none';
-                digitControl.style.opacity = '0.25';
-                cornerControl.style.opacity = '0.25'
-                middleControl.style.opacity = '0.25';
-                colorControl.style.opacity = '0.25'
-                puzzleTitle.style.display = 'none';
-                puzzleTimer.style.pointerEvents = 'none';
-                puzzleTimer.style.opacity = '0.25';
+                pauseTimer();
+                toggleGameInterrupted(false);
+                toggleDisableControls(true, false);
                 break;
         }
     }
@@ -1322,7 +1362,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function gameOver() {
-        displayHappyMessage(happyMessages.GREAT_JOB);
+        puzzleHistory['gameOver'] = true;
+        localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
+        pauseTimer(false, true);
     }
 
     function placeCornerMarkInSelectedCells(digit, addToHistory) {
@@ -1880,10 +1922,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const game = document.getElementById('game');
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
-        const scaleX = windowWidth / 1000;
-        const scaleY = windowHeight / 1000;
+        const scaleX = windowWidth / 829;
+        const scaleY = windowHeight / 829;
         const scale = Math.min(scaleX, scaleY);
-        game.style.transform = 'scale(' + scale + ')';
+        if(scale <=1) {
+            game.style.transform = 'scale(' + scale + ')';
+        }
     }
 
     function encryptString(text) {
@@ -1900,9 +1944,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if(!activeGame && (game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True')) {
         displayHappyMessage(happyMessages.STARTING_TIP);
     }
-
-    window.addEventListener('resize', resizeGrid, true);
-    resizeGrid();
 });
 </script>
 <div id="game" data-imported-puzzle="{{ imported_puzzle }}" data-puzzle-job-id="{{ job_id }}" data-puzzle-title="{{ puzzle_title }}" data-puzzle-import-error="{{ import_error }}">
@@ -2167,7 +2208,23 @@ document.addEventListener('DOMContentLoaded', function() {
     </svg>
     <div id="error-message"></div>
     <div id="happy-message"></div>
-    <dialog id="import-dialog">
+    <div id="game-controls">
+        <a href="#" id="digit-control" class="game-control selected" style="background-image: url({% static 'img/digit-control.svg' %});"></a>
+        <a href="#" id="corner-control" class="game-control" style="background-image: url({% static 'img/corner-control.svg' %});"></a>
+        <a href="#" id="middle-control" class="game-control" style="background-image: url({% static 'img/middle-control.svg' %});"></a>
+        <a href="#" id="color-control" class="game-control" style="background-image: url({% static 'img/color-control.svg' %});"></a>
+         <a href="#" id="create-button" class="game-control button">Create</a>
+        <a href="#" id="import-button" class="game-control button">Import</a>
+        <a href="#" id="play-button" class="game-control button primary">Play</a>
+        <a href="#" id="cancel-button" class="game-control button">Cancel</a>
+    </div>
+</div>
+<div id="game-interrupted">
+    <h2 id="interruption-message">Game Paused</h2>
+    <a href="#" id="restart-button" class="button">Restart</a>
+    <a href="#" id="continue-button" class="button primary">Continue</a>
+</div>
+<dialog id="import-dialog">
         <h4>Import Puzzle</h4>
         <form method="post">
             {% csrf_token %}
@@ -2185,16 +2242,5 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button id="import-submit" class="primary" type="submit">Import</button>
             </div>
         </form>
-    </dialog>
-    <div id="game-controls">
-        <a href="#" id="digit-control" class="game-control selected" style="background-image: url({% static 'img/digit-control.svg' %});"></a>
-        <a href="#" id="corner-control" class="game-control" style="background-image: url({% static 'img/corner-control.svg' %});"></a>
-        <a href="#" id="middle-control" class="game-control" style="background-image: url({% static 'img/middle-control.svg' %});"></a>
-        <a href="#" id="color-control" class="game-control" style="background-image: url({% static 'img/color-control.svg' %});"></a>
-         <a href="#" id="create-button" class="game-control button">Create</a>
-        <a href="#" id="import-button" class="game-control button">Import</a>
-        <a href="#" id="play-button" class="game-control button primary">Play</a>
-        <a href="#" id="cancel-button" class="game-control button">Cancel</a>
-    </div>
-</div>
+</dialog>
 {% endblock content %}

@@ -25,12 +25,6 @@
     position: absolute;
     left: 20px;
     top: 75px;
-    -webkit-transform: translate3d(0, 0, 0);
-    transform: translate3d(0, 0, 0);
-    perspective: 1000;
-    -webkit-perspective: 1000;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
 }
 
 #game-grid g text {
@@ -392,4 +386,31 @@ div.dialog-controls {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+}
+
+#game-interrupted {
+    width: 762px;
+    height: 762px;
+    background-color: rgb(5, 10, 28, 0.7);
+    backdrop-filter: blur(10px);
+    position: absolute;
+    left: 27px;
+    top: 82px;
+    border: 2px solid #61C9FF;
+    border-radius: 8px;
+    text-align: center;
+    display: none;
+}
+
+#game-interrupted a {
+    margin-right: 32px;
+}
+
+#game-interrupted a:last-child {
+    margin-right: 0px;
+}
+
+#interruption-message {
+    font-size: 60px;
+    margin-top: 230px;
 }
