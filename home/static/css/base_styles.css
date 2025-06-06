@@ -18,7 +18,7 @@ a.button {
     background-color: #050A1C;
 }
 
-a.button.secondary, a:visited {
+a.button.secondary, a:visited, a:hover, a:active {
     color: white;
 }
 
