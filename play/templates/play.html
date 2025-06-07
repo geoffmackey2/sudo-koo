@@ -112,24 +112,35 @@ document.addEventListener('DOMContentLoaded', function() {
     var puzzGenTimeout;
     var gameInterrupted = false;
     var generatingPuzzle = false;
+    var steppingThroughHistory = false;
 
     function setupGame() {
         checkLocalStorage();
-        gameTimer = setupTimer();
-        if(puzzleHistory['timerDuration'] === 0 || puzzleHistory['timerPaused'] === true) {
-            pauseTimer();
-        }
+
         var currentPuzzleTitle = '';
         if(localStorage.getItem('puzzleTitle') != null) {
             currentPuzzleTitle = localStorage.getItem('puzzleTitle');
+            gameTimer = setupTimer();
+            if(puzzleHistory['timerDuration'] === 0 || puzzleHistory['timerPaused'] === true) {
+                pauseTimer();
+                toggleGameInterrupted(true, false, puzzleHistory['gameOver']);
+            }
+        } else {
+            if(game.dataset.importingPuzzle === 'False') {
+                displayHappyMessage(happyMessages.STARTING_TIP);
+            }
         }
         puzzleTitle.innerHTML = currentPuzzleTitle;
         
-        if(game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
+        if(game.dataset.importingPuzzle === 'True' && game.dataset.puzzleImportError != 'True') {
             toggleGeneratingPuzzleMode(true)
             checkPuzzleGenerationStatus();
         } else if(game.dataset.puzzleImportError === 'True') {
             displayErrorMessage(errors.SERVER_ERROR);
+        } else {
+            if(puzzleHistory['gameOver']) {
+                gameOver();
+            }
         }
         
         setupControls();
@@ -287,13 +298,23 @@ document.addEventListener('DOMContentLoaded', function() {
         window.addEventListener('resize', resizeGrid, true);
         resizeGrid();
         window.history.replaceState({}, document.title, window.location.pathname);
-
-        if(puzzleHistory['gameOver']) {
-            gameOver();
-        }
     }
 
-    function toggleGameInterrupted(interrupted) {
+    function toggleGameInterrupted(interrupted, newGame, gameEnded) {
+        if(interrupted) {
+            if(newGame) {
+                interruptionMessage.textContent = 'Puzzle ready. Let\'s go!';
+                continueButton.textContent = 'Play';
+                restartButton.style.display = 'none';
+            } else if(!gameEnded) {
+                interruptionMessage.textContent = 'Game Paused';
+                continueButton.textContent = 'Continue';
+                restartButton.style.display = 'inline-block';
+            } else {
+                interruptionMessage.textContent = 'Great job, you did it!';
+                continueButton.textContent = 'Review';
+            }
+        }
         var overlayShowing = interrupted ? 'block' : 'none';
         interruptOverlay.style.display = overlayShowing;
         gameInterrupted = interrupted;
@@ -307,19 +328,6 @@ document.addEventListener('DOMContentLoaded', function() {
         puzzleTimerPauseButton.style.display = 'none';
         puzzleHistory['timerPaused'] = true;
         localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
-        if(newGame) {
-            interruptionMessage.textContent = 'Puzzle ready. Let\'s go!';
-            continueButton.textContent = 'Play';
-            restartButton.style.display = 'none';
-        } else if(!gameEnded) {
-            interruptionMessage.textContent = 'Game Paused';
-            continueButton.textContent = 'Continue';
-            restartButton.style.display = 'inline-block';
-        } else {
-            interruptionMessage.textContent = 'Great job, you did it!';
-            continueButton.textContent = 'Review';
-        }
-        toggleGameInterrupted(true);
     }
 
     function startTimer() {
@@ -329,7 +337,6 @@ document.addEventListener('DOMContentLoaded', function() {
             puzzleTimerPauseButton.style.display = 'block';
             puzzleHistory['timerPaused'] = false;
             localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
-            toggleGameInterrupted(false);
         }
     }
 
@@ -342,11 +349,11 @@ document.addEventListener('DOMContentLoaded', function() {
         puzzleHistory['timerPaused'] = false;
         localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         updateTimerDisplay();
-        toggleGameInterrupted(false);
         gameTimer = setupTimer();
     }
 
     function setupTimer() {
+        puzzleTimer.style.display = 'block';
         if(puzzleHistory['timerDuration'] > 0) {
             puzzleTimerPlayButton.style.display = 'none';
             puzzleTimerPauseButton.style.display = 'block';
@@ -387,6 +394,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function toggleGeneratingPuzzleMode(generating) {
+        toggleGameInterrupted(false);
         generatingPuzzle = generating;
         if(generating) {
             puzzleTitle.innerHTML = 'Generating new puzzle...';
@@ -394,14 +402,11 @@ document.addEventListener('DOMContentLoaded', function() {
             toggleBoardGlow(true);
             clearGrid();
             pauseTimer();
-            toggleGameInterrupted(false);
             toggleDisableControls(true, true);
         } else {
             toggleBoardGlow(false);
-            puzzleTitle.innerHTML = game.dataset.puzzleTitle;
             cancelPuzzGenButton.style.display = 'none';
             toggleDisableControls(false, true);
-            buildExistingPuzzle();
         }
     }
 
@@ -463,7 +468,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 toggleGeneratingPuzzleMode(false);
                 checkLocalStorage();
                 restartTimer();
-                pauseTimer(true);
+                pauseTimer();
+                toggleGameInterrupted(true, true, false);
             } else {
                 cancelPuzzleGeneration();
                 displayErrorMessage(errors.SERVER_ERROR);
@@ -474,7 +480,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function cancelPuzzleGeneration() {
         clearTimeout(puzzGenTimeout);
         toggleGeneratingPuzzleMode(false);
-        startTimer();
+        game.setAttribute('data-importing-puzzle', 'False');
+        if(activeGame) {
+            puzzleTitle.innerHTML = game.dataset.puzzleTitle;
+            startTimer();
+        } else {
+            checkLocalStorage();
+            if(puzzleHistory['gameOver']) {
+                toggleGameInterrupted(false);
+            }
+        }
     }
 
     function buildExistingPuzzle() {
@@ -499,15 +514,24 @@ document.addEventListener('DOMContentLoaded', function() {
             puzzleHistory = JSON.parse(decryptString(puzzleHistory));
             var lastHistoryIndex = puzzleHistory['lastHistoryIndex'];
             if(lastHistoryIndex > -1) {
+                steppingThroughHistory = true;
                 puzzleHistory['lastHistoryIndex'] = -1;
                 for(var i = 0; i <= lastHistoryIndex; i++) {
                     stepThroughHistory(stepDirection.FORWARD);
                 }
+                steppingThroughHistory = false;
+                validateGrid();
                 deselectAll();
             }
             updateTimerDisplay();
         } else {
             createBlankPuzzleHistory();
+        }
+        var puzzleTitleText = localStorage.getItem('puzzleTitle');
+        if(puzzleTitleText != null) {
+            puzzleTitle.textContent = puzzleTitleText;
+        } else {
+            puzzleTitle.textContent = '';
         }
     }
 
@@ -633,8 +657,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function toggleTimer(playing) {
         if(playing) {
             startTimer();
+            toggleGameInterrupted(false);
         } else {
             pauseTimer();
+            toggleGameInterrupted(true);
         }
     }
 
@@ -644,9 +670,10 @@ document.addEventListener('DOMContentLoaded', function() {
         cancelButton.style.display = 'none';
         importButton.style.display = 'block'
         toggleDisableControls(false, false);
-        startTimer();
-        if(!activeGame) {
-            clearGrid();
+        if(!puzzleHistory['gameOver']) {
+            startTimer();
+        } else {
+            toggleGameInterrupted(false);
         }
         updateCurrentMode(modes.DIGIT);
     }
@@ -1110,8 +1137,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButton.style.display = 'block';
                 createButton.style.display = 'none';
                 importButton.style.display = 'none';
-                pauseTimer();
-                toggleGameInterrupted(false);
+                if(activeGame) {
+                    pauseTimer();
+                    puzzleTitle.textContent = '';
+                }
                 toggleDisableControls(true, false);
                 break;
         }
@@ -1359,15 +1388,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 gridIsComplete = false;
             }
         }
-        if(gridIsValid && gridIsComplete) {
+        if(gridIsValid && gridIsComplete && !steppingThroughHistory) {
+            puzzleHistory['gameOver'] = true;
+            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
             gameOver();
+        } else {
+            puzzleHistory['gameOver'] = false;
+            localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
         }
     }
 
     function gameOver() {
-        puzzleHistory['gameOver'] = true;
-        localStorage.setItem('puzzleHistory', encryptString(JSON.stringify(puzzleHistory)));
-        pauseTimer(false, true);
+        activeGame = false;
+        pauseTimer();
+        toggleGameInterrupted(true, false, true);
     }
 
     function placeCornerMarkInSelectedCells(digit, addToHistory) {
@@ -1944,12 +1978,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     setupGame();
-    if(!activeGame && (game.dataset.importedPuzzle === 'True' && game.dataset.puzzleImportError != 'True')) {
-        displayHappyMessage(happyMessages.STARTING_TIP);
-    }
 });
 </script>
-<div id="game" data-imported-puzzle="{{ imported_puzzle }}" data-puzzle-job-id="{{ job_id }}" data-puzzle-title="{{ puzzle_title }}" data-puzzle-import-error="{{ import_error }}">
+<div id="game" data-importing-puzzle="{{ importing_puzzle }}" data-puzzle-job-id="{{ job_id }}" data-puzzle-title="{{ puzzle_title }}" data-puzzle-import-error="{{ import_error }}">
     <div id="header">
         <a href="/">
             <img src="{% static 'img/site-logo.svg' %}" class="site-logo">

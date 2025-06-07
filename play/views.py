@@ -10,7 +10,7 @@ from rq.job import Job
 
 def index(request):
     context = {
-        'imported_puzzle': False,
+        'importing_puzzle': False,
         'puzzle_title': '',
         'job_id': '',
     }
@@ -26,7 +26,7 @@ def index(request):
              return HttpResponse("Invalid encoding, expected UTF-8", status=400)
         except:
             puzzle_to_import = request.POST.get('generate-puzzles')
-            context['imported_puzzle'] = True
+            context['importing_puzzle'] = True
             match puzzle_to_import:
                 case 'gen-extreme':
                     extreme_job = enqueue(generate_puzzle, 'extreme')
@@ -45,7 +45,7 @@ def index(request):
                     context['job_id'] = easy_job.id
                     context['puzzle_title'] = 'sudo-koo Easy Puzzle'
                 case _:
-                    context['imported_puzzle'] = False
+                    context['importing_puzzle'] = False
     template = loader.get_template('play.html')
     return HttpResponse(template.render(context=context, request=request))
 

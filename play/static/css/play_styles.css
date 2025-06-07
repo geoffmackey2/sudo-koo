@@ -365,6 +365,10 @@ div.dialog-controls {
     margin-left: 4px;
 }
 
+#puzzle-timer {
+    display: none;
+}
+
 #puzzle-timer-duration {
     position: absolute;
     left: 640px;
