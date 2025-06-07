@@ -670,7 +670,7 @@ document.addEventListener('DOMContentLoaded', function() {
         cancelButton.style.display = 'none';
         importButton.style.display = 'block'
         toggleDisableControls(false, false);
-        if(!puzzleHistory['gameOver']) {
+        if(!puzzleHistory['gameOver'] && puzzleHistory['puzzleData'] != null) {
             startTimer();
         } else {
             toggleGameInterrupted(false);
