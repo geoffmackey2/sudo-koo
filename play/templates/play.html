@@ -481,11 +481,11 @@ document.addEventListener('DOMContentLoaded', function() {
         clearTimeout(puzzGenTimeout);
         toggleGeneratingPuzzleMode(false);
         game.setAttribute('data-importing-puzzle', 'False');
+        checkLocalStorage();
         if(activeGame) {
             puzzleTitle.innerHTML = game.dataset.puzzleTitle;
             startTimer();
         } else {
-            checkLocalStorage();
             if(puzzleHistory['gameOver']) {
                 toggleGameInterrupted(false);
             }
@@ -670,7 +670,8 @@ document.addEventListener('DOMContentLoaded', function() {
         cancelButton.style.display = 'none';
         importButton.style.display = 'block'
         toggleDisableControls(false, false);
-        if(!puzzleHistory['gameOver'] && puzzleHistory['puzzleData'] != null) {
+        if(!puzzleHistory['gameOver'] && localStorage.getItem('puzzleData') != null) {
+            puzzleTimer.style.display = 'block';
             startTimer();
         } else {
             toggleGameInterrupted(false);
@@ -1139,6 +1140,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 importButton.style.display = 'none';
                 if(activeGame) {
                     pauseTimer();
+                    puzzleTimer.style.display = 'none';
                     puzzleTitle.textContent = '';
                 }
                 toggleDisableControls(true, false);
